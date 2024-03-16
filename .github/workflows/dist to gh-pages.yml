@@ -1,0 +1,27 @@
+name: dist to gh-pages branch
+
+on: workflow_dispatch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: Configure Git
+      run: |
+        git config --global user.email "me@unxok.com"
+        git config --global user.name "panel-offline[bot]"
+
+    - name: Commit and Push dist to gh-pages
+      run: |
+        git add dist
+        git commit -m "Initial dist subtree commit" || echo "No changes to commit"
+        git subtree push --prefix dist origin gh-pages
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+        
