@@ -6,7 +6,7 @@
 	"scripts": {
 		"dev": "vite",
 		"build": "tsc && vite build",
-		"deploy": "git subtree push --prefix dist origin gh-pages",
+		"deploy": "git add dist && git commit -m 'dist subtree commit' || echo 'No changes to commit' && git subtree push --prefix dist origin gh-pages",
 		"lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
 		"preview": "vite preview"
 	},
