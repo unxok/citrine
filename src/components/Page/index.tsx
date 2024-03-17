@@ -7,18 +7,20 @@ import { ReactNode } from "react";
  */
 export const Page = ({
 	title,
+	id,
 	children,
 }: {
 	title: string;
+	id: number;
 	children?: ReactNode;
 }) => {
-	const { activePageName } = usePage();
+	const { activePage } = usePage();
 
-	if (activePageName !== title) return;
+	if (activePage !== id) return;
 
 	return (
-		<div className='inset-0 fixed border bg-background p-2 border'>
-			{children}
+		<div className='inset-0 fixed border bg-background p-2'>
+			Hello?{children}
 		</div>
 	);
 };

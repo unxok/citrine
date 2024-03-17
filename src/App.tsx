@@ -7,15 +7,37 @@ import { SettingsModal } from "./components/SettingsModal";
 import { Toaster } from "./components/ui/sonner";
 import { toast } from "sonner";
 import { ThemeProvider } from "./components/ThemeProvider";
-import {
-	ResizablePanelGroup,
-	ResizablePanel,
-	ResizableHandle,
-} from "./components/ui/resizable";
+import { useLiveQuery } from "dexie-react-hooks";
+import { PageSchema, db } from "./db";
 
 function App() {
-	const { setActivePageByName, activePageName } = usePage();
+	const { isMounted } = useMount();
+	const { setActivePage, activePage, pages, setPages } = usePage();
 	const [isSettingsOpen, setSettingsOpen] = useState(false);
+	/**
+	 * Reads data from indexedDb and loads it into the stores
+	 */
+	const loadStoresFromDb = async () => {
+		// get data for page table
+		// load data into usePage store
+		const dbPages = await db.pages.toArray();
+		if (!dbPages || !dbPages.length)
+			return console.log("no pages in db: ", dbPages);
+		console.log("dbPages: ", dbPages);
+		setPages((prev) => ({
+			...prev,
+			pages: dbPages,
+		}));
+	};
+
+	useEffect(() => {
+		console.log("mounted? ", isMounted);
+		if (!isMounted) {
+			console.log("trying to load from db...");
+			loadStoresFromDb();
+		}
+		console.log("pages from store: ", pages);
+	}, [pages, isMounted]);
 
 	useEffect(() => {
 		window.addEventListener("keydown", handleKeyDonwn);
@@ -26,11 +48,11 @@ function App() {
 	}, []);
 
 	useEffect(() => {
-		const toastAlert = toast.success("Loaded Page: " + activePageName);
+		const toastAlert = toast.success("Loaded Page: " + activePage);
 		// return () => {
 		// 	toast.dismiss(toastAlert);
 		// };
-	}, [activePageName]);
+	}, [activePage]);
 
 	const handleKeyDonwn = (e: KeyboardEvent) => {
 		if (e.ctrlKey && e.key === ".") {
@@ -48,17 +70,22 @@ function App() {
 					richColors
 					toastOptions={{}}
 				/>
-				<Page title={"Home"}>
-					I'm the home page!{" "}
-					<Button
-						variant={"destructive"}
-						onClick={(_) => setActivePageByName("Second")}
+				{/* <Page
+					id={1}
+					title={"Home"}
+				>
+					I'm the home page!
+				</Page> */}
+				{pages?.map((p) => (
+					<Page
+						key={"page-" + p.id}
+						id={p.id || -1}
+						title={p.title}
 					>
-						Go Second
-					</Button>
-					<Resizable />
-				</Page>
-				<Page title={"Second"}>
+						I'm the {p.title} page!
+					</Page>
+				))}
+				{/* <Page title={"Second"}>
 					I'm the second page!{" "}
 					<Button
 						variant={"destructive"}
@@ -66,7 +93,7 @@ function App() {
 					>
 						Go Home
 					</Button>
-				</Page>
+				</Page> */}
 				{isSettingsOpen && (
 					<SettingsModal
 						open={isSettingsOpen}
@@ -80,17 +107,21 @@ function App() {
 
 export default App;
 
-const Resizable = () => {
-	const [size, setSize] = useState({
-		width: 200,
-		height: 200,
-	});
-	const handleResize = ({
-		size,
-	}: {
-		size: { width: number; height: number };
-	}) => {
-		setSize({ width: size.width, height: size.height });
-	};
-	return <div>hi</div>;
+const Section = () => {
+	/******* TODO LIST *******/
+	// Start as a ResizablePanel
+	// Context menu on right click with option to split panel
+	// splitting panel can be done horizontally or vertically
+	// 'splitting' causes the panel to turn into a ResizablePanelGroup with two ResizablePanels separated by a ResizableHandle
+	return <div>I'm a section</div>;
+};
+
+const useMount = () => {
+	const [isMounted, setMounted] = useState(false);
+
+	useEffect(() => {
+		setMounted(true);
+	}, [isMounted]);
+
+	return { isMounted, setMounted };
 };

@@ -1,31 +1,38 @@
+import { PageSchema } from "@/db";
 import { create } from "zustand";
 
 type PageState = {
-	pages: string[];
+	pages: PageSchema[];
+	setPages: (
+		partial:
+			| PageState
+			| Partial<PageState>
+			| ((state: PageState) => PageState | Partial<PageState>),
+		replace?: boolean | undefined
+	) => void;
 	addPage: (title: string) => void;
-	deletePage: (title: string) => void;
+	deletePage: (id: number | undefined) => void;
 	resetPages: () => void;
-	activePageName: string;
-	setActivePageByName: (title: string) => void;
+	activePage: number;
+	setActivePage: (id: number) => void;
 };
 
+// const defaultPages = ["Home"];
+
 export const usePage = create<PageState>((set, get) => ({
-	pages: ["Home", "Second"],
+	pages: [{ id: 1, title: "Home" }],
+	setPages: set,
 	addPage: (title) => {
-		return set((state) => {
-			const isDuplicate = !!state.pages.find((p) => p === title);
-			if (isDuplicate) {
-				// TODO toast for duplicate?
-				return state;
-			}
-			return { ...state, pages: [...state.pages, title] };
-		});
+		return set((state) => ({
+			...state,
+			pages: [...state.pages, { title: title }],
+		}));
 	},
-	deletePage: (title) => {
+	deletePage: (pageId) => {
 		return set((state) => {
 			return {
 				...state,
-				pages: state.pages.filter((p) => p !== title),
+				pages: state.pages.filter(({ id }) => id !== pageId),
 			};
 		});
 	},
@@ -33,16 +40,16 @@ export const usePage = create<PageState>((set, get) => ({
 		return set((state) => {
 			return {
 				...state,
-				pages: ["Home"],
+				pages: [{ title: "Home" }],
 			};
 		});
 	},
-	activePageName: "Home",
-	setActivePageByName: (title) => {
+	activePage: 1,
+	setActivePage: (id: number) => {
 		return set((state) => {
 			return {
 				...state,
-				activePageName: title,
+				activePageName: id,
 			};
 		});
 	},
