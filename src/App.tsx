@@ -1,127 +1,241 @@
 import { useEffect, useState } from "react";
 import "./App.css";
-import { Page } from "./components/Page";
-import { Button } from "./components/ui/button";
-import { usePage } from "./stores/usePage";
-import { SettingsModal } from "./components/SettingsModal";
 import { Toaster } from "./components/ui/sonner";
-import { toast } from "sonner";
 import { ThemeProvider } from "./components/ThemeProvider";
-import { useLiveQuery } from "dexie-react-hooks";
-import { PageSchema, db } from "./db";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragOverEvent,
+  UniqueIdentifier,
+  DragStartEvent,
+  DragOverlay,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  horizontalListSortingStrategy,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { SortableItem } from "./components/SortableItem";
+import { Button } from "./components/ui/button";
+import { PlusIcon } from "@radix-ui/react-icons";
+import { create } from "zustand";
+import { CARD_LS_KEY } from "./lib/consts";
+import { cn } from "./lib/utils";
 
 function App() {
-	const { isMounted } = useMount();
-	const { setActivePage, activePage, pages, setPages } = usePage();
-	const [isSettingsOpen, setSettingsOpen] = useState(false);
-	/**
-	 * Reads data from indexedDb and loads it into the stores
-	 */
-	const loadStoresFromDb = async () => {
-		// get data for page table
-		// load data into usePage store
-		const dbPages = await db.pages.toArray();
-		if (!dbPages || !dbPages.length)
-			return console.log("no pages in db: ", dbPages);
-		console.log("dbPages: ", dbPages);
-		setPages((prev) => ({
-			...prev,
-			pages: dbPages,
-		}));
-	};
+  const { cards, setCards, saveCards, activeCard, setActiveCardId } =
+    useCardStore();
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
 
-	useEffect(() => {
-		console.log("mounted? ", isMounted);
-		if (!isMounted) {
-			console.log("trying to load from db...");
-			loadStoresFromDb();
-		}
-		console.log("pages from store: ", pages);
-	}, [pages, isMounted]);
+  useEffect(() => {
+    console.log("cards: ", cards);
+    saveCards(CARD_LS_KEY, cards);
+  }, [cards]);
+  useEffect(() => {
+    const cardString = localStorage.getItem(CARD_LS_KEY);
+    if (!cardString) return;
+    const cardJson = JSON.parse(cardString);
+    setCards(() => cardJson);
+  }, []);
+  //   useEffect(() => console.log("disabledLane: ", disabledLane), [disabledLane]);
 
-	useEffect(() => {
-		window.addEventListener("keydown", handleKeyDonwn);
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!Number(active.id)) return;
+    if (active.id !== over?.id) {
+      setCards((items) => {
+        if (!items) return items;
+        const oldIndex = items.findIndex(
+          (item) => item.id === Number(active?.id),
+        );
+        const newIndex = items.findIndex(
+          (item) => item.id === Number(over?.id),
+        );
 
-		return () => {
-			window.removeEventListener("keydown", handleKeyDonwn);
-		};
-	}, []);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+    setActiveCardId(null);
+  };
 
-	useEffect(() => {
-		const toastAlert = toast.success("Loaded Page: " + activePage);
-		// return () => {
-		// 	toast.dismiss(toastAlert);
-		// };
-	}, [activePage]);
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    console.log("run it run it");
+    console.log("active: ", active);
+    console.log("over: ", over);
 
-	const handleKeyDonwn = (e: KeyboardEvent) => {
-		if (e.ctrlKey && e.key === ".") {
-			setSettingsOpen((b) => !b);
-		}
-	};
+    setActiveCardId(active.id);
+    if (active.id !== over?.id && over?.data.current) {
+      setTimeout(
+        () =>
+          setCards((items) => {
+            if (!over?.id) {
+              throw new Error("This should be impossible");
+            }
+            if (!items) return items;
+            const oldIndex = items?.findIndex(
+              (item) => item.id === Number(active?.id),
+            );
+            if (oldIndex === -1) {
+              return items;
+            }
+            const copyItems = [...items];
+            const oldCard = { ...copyItems[oldIndex] };
+            copyItems[oldIndex] = {
+              ...oldCard,
+              lane: over?.data?.current?.sortable.containerId || oldCard.lane,
+            };
+            return copyItems;
+          }),
+        0,
+      );
+    }
+  };
 
-	return (
-		<ThemeProvider
-			defaultTheme='dark'
-			storageKey='vite-ui-theme'
-		>
-			<div className=''>
-				<Toaster
-					richColors
-					toastOptions={{}}
-				/>
-				{/* <Page
-					id={1}
-					title={"Home"}
-				>
-					I'm the home page!
-				</Page> */}
-				{pages?.map((p) => (
-					<Page
-						key={"page-" + p.id}
-						id={p.id || -1}
-						title={p.title}
-					>
-						I'm the {p.title} page!
-					</Page>
-				))}
-				{/* <Page title={"Second"}>
-					I'm the second page!{" "}
-					<Button
-						variant={"destructive"}
-						onClick={(_) => setActivePageByName("Home")}
-					>
-						Go Home
-					</Button>
-				</Page> */}
-				{isSettingsOpen && (
-					<SettingsModal
-						open={isSettingsOpen}
-						onOpenChange={setSettingsOpen}
-					/>
-				)}
-			</div>
-		</ThemeProvider>
-	);
+  return (
+    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+        onDragOver={handleDragOver}
+      >
+        <div className="fixed inset-0 flex items-center justify-center gap-10 bg-background text-primary-foreground">
+          <Toaster richColors toastOptions={{}} />
+          Well hello there
+          {[{ id: "lane1" }, { id: "lane2" }].map(({ id }) => (
+            <Lane
+              key={id}
+              id={id}
+              items={cards?.filter((item) => item.lane === id)}
+            />
+          ))}
+        </div>
+        <DragOverlay className="bg-background">
+          {activeCard ? (
+            <div className="opacity-1 rounded-md border p-5">
+              {activeCard.title}
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+    </ThemeProvider>
+  );
 }
 
 export default App;
 
-const Section = () => {
-	/******* TODO LIST *******/
-	// Start as a ResizablePanel
-	// Context menu on right click with option to split panel
-	// splitting panel can be done horizontally or vertically
-	// 'splitting' causes the panel to turn into a ResizablePanelGroup with two ResizablePanels separated by a ResizableHandle
-	return <div>I'm a section</div>;
+const Lane = ({
+  id,
+  items,
+  direction = "vertical",
+}: {
+  id: UniqueIdentifier;
+  items?: Card[];
+  direction?: "vertical" | "horizontal";
+}) => {
+  const isEmpty = !items?.length;
+  const [sortStrat, flexDir] =
+    direction === "vertical"
+      ? [verticalListSortingStrategy, "flex-col"]
+      : [horizontalListSortingStrategy, "flex-row"];
+  const { activeCard } = useCardStore();
+  return (
+    // <Droppable id={id} disabled={isEmpty ? false : true}>
+    <SortableContext
+      id={id.toString()}
+      items={items ?? []}
+      strategy={sortStrat}
+    >
+      <div className={`flex h-fit w-fit gap-5 border p-10 ${flexDir}`}>
+        {items?.map(({ id, title }) => (
+          <SortableItem key={id} id={id}>
+            <div
+              className={cn(
+                "rounded-md border p-5",
+                activeCard?.id === id && "border-primary text-primary",
+              )}
+            >
+              {title}
+            </div>
+          </SortableItem>
+        ))}
+        <SortableItem id={`${id}-empty`}>
+          <div
+            aria-disabled
+            className="rounded-md border border-dashed p-5 text-muted-foreground hover:cursor-not-allowed"
+            style={isEmpty ? {} : { display: "none" }}
+          >
+            {"Drag Cards Here"}
+          </div>
+        </SortableItem>
+        <Button variant={"outline"}>
+          <PlusIcon />
+        </Button>
+      </div>
+    </SortableContext>
+    // </Droppable>
+  );
 };
 
-const useMount = () => {
-	const [isMounted, setMounted] = useState(false);
-
-	useEffect(() => {
-		setMounted(true);
-	}, [isMounted]);
-
-	return { isMounted, setMounted };
+type Card = {
+  id: UniqueIdentifier;
+  title?: string;
+  lane: string;
 };
+
+type CardStore = {
+  cards?: Card[];
+  activeCard?: Card | null;
+  setActiveCardId: (id: UniqueIdentifier | null) => void;
+  addCard: (card: Card) => void;
+  setCards: (callback: (cards?: Card[]) => Card[] | undefined) => void;
+  saveCards: (localStorageKey: string, cards?: Card[]) => void;
+};
+
+const useCardStore = create<CardStore>()((set, get) => ({
+  cards: undefined,
+  activeCard: undefined,
+  setActiveCardId: (id) => {
+    set((state) => ({
+      ...state,
+      activeCard: state?.cards?.find((c) => c.id === id) ?? null,
+    }));
+  },
+  addCard: (card) => {
+    set((state) => ({
+      ...state,
+      cards: state.cards ? [...state.cards, card] : [card],
+    }));
+  },
+  setCards: (callback) => {
+    set((state) => {
+      const newCards = callback(state.cards ? [...state?.cards] : undefined);
+      if (JSON.stringify(newCards) === JSON.stringify(state?.cards)) {
+        return state;
+      }
+      return {
+        ...state,
+        cards: newCards,
+      };
+    });
+  },
+  saveCards: (localStorageKey, cards) => {
+    setTimeout(() => {
+      const cardString = JSON.stringify(cards ? cards : get().cards);
+      localStorage.setItem(localStorageKey, cardString);
+    }, 0);
+  },
+}));
