@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { ReactNode, useEffect, useState } from "react";
 import "./App.css";
 import { Toaster } from "./components/ui/sonner";
 import { ThemeProvider } from "./components/ThemeProvider";
@@ -28,6 +28,8 @@ import { PlusIcon } from "@radix-ui/react-icons";
 import { create } from "zustand";
 import { CARD_LS_KEY } from "./lib/consts";
 import { cn } from "./lib/utils";
+import { toast } from "sonner";
+import { Droppable } from "./components/Droppable";
 
 function App() {
   const { cards, setCards, saveCards, activeCard, setActiveCardId } =
@@ -41,7 +43,7 @@ function App() {
 
   useEffect(() => {
     console.log("cards: ", cards);
-    saveCards(CARD_LS_KEY, cards);
+    if (!cards) return;
   }, [cards]);
   useEffect(() => {
     const cardString = localStorage.getItem(CARD_LS_KEY);
@@ -63,8 +65,9 @@ function App() {
         const newIndex = items.findIndex(
           (item) => item.id === Number(over?.id),
         );
-
-        return arrayMove(items, oldIndex, newIndex);
+        const newCards = arrayMove(items, oldIndex, newIndex);
+        saveCards(CARD_LS_KEY, newCards);
+        return newCards;
       });
     }
     setActiveCardId(null);
@@ -77,7 +80,7 @@ function App() {
     console.log("over: ", over);
 
     setActiveCardId(active.id);
-    if (active.id !== over?.id && over?.data.current) {
+    if (active.id !== over?.id) {
       setTimeout(
         () =>
           setCards((items) => {
@@ -93,9 +96,16 @@ function App() {
             }
             const copyItems = [...items];
             const oldCard = { ...copyItems[oldIndex] };
+            const newLaneId: string = (() => {
+              const { itemType } = over.data.current || {};
+              if (!itemType) return oldCard.lane;
+              if (itemType === "card")
+                return over?.data?.current?.sortable.containerId;
+              if (itemType === "lane") return over.id;
+            })();
             copyItems[oldIndex] = {
               ...oldCard,
-              lane: over?.data?.current?.sortable.containerId || oldCard.lane,
+              lane: newLaneId,
             };
             return copyItems;
           }),
@@ -112,16 +122,10 @@ function App() {
         onDragEnd={handleDragEnd}
         onDragOver={handleDragOver}
       >
+        <Toaster richColors toastOptions={{}} visibleToasts={100} />
         <div className="fixed inset-0 flex items-center justify-center gap-10 bg-background text-primary-foreground">
-          <Toaster richColors toastOptions={{}} />
           Well hello there
-          {[{ id: "lane1" }, { id: "lane2" }].map(({ id }) => (
-            <Lane
-              key={id}
-              id={id}
-              items={cards?.filter((item) => item.lane === id)}
-            />
-          ))}
+          <Board lanes={[{ id: "lane1" }, { id: "lane2" }]} cards={cards} />
         </div>
         <DragOverlay className="bg-background">
           {activeCard ? (
@@ -137,6 +141,21 @@ function App() {
 
 export default App;
 
+const Board = ({ lanes, cards }: { lanes?: any; cards?: Card[] }) => {
+  //
+  return (
+    <div className="flex flex-row items-center justify-center gap-3 border p-10">
+      {lanes.map(({ id }) => (
+        <Lane
+          key={id}
+          id={id}
+          items={cards?.filter((item) => item.lane === id)}
+        />
+      ))}
+    </div>
+  );
+};
+
 const Lane = ({
   id,
   items,
@@ -151,42 +170,50 @@ const Lane = ({
     direction === "vertical"
       ? [verticalListSortingStrategy, "flex-col"]
       : [horizontalListSortingStrategy, "flex-row"];
-  const { activeCard } = useCardStore();
   return (
-    // <Droppable id={id} disabled={isEmpty ? false : true}>
     <SortableContext
       id={id.toString()}
       items={items ?? []}
       strategy={sortStrat}
     >
-      <div className={`flex h-fit w-fit gap-5 border p-10 ${flexDir}`}>
-        {items?.map(({ id, title }) => (
-          <SortableItem key={id} id={id}>
-            <div
-              className={cn(
-                "rounded-md border p-5",
-                activeCard?.id === id && "border-primary text-primary",
-              )}
-            >
-              {title}
+      <Droppable id={id} disabled={isEmpty ? false : true} itemType="lane">
+        <div className={`flex h-fit w-fit gap-5 border p-10 ${flexDir}`}>
+          {items?.map(({ id, title }) => (
+            <CardDraggable key={"card-" + id} id={id} title={title} />
+          ))}
+          {isEmpty && (
+            <div className="rounded-md border border-dashed p-5 text-muted-foreground hover:cursor-not-allowed">
+              {"Drag Cards Here"}
             </div>
-          </SortableItem>
-        ))}
-        <SortableItem id={`${id}-empty`}>
-          <div
-            aria-disabled
-            className="rounded-md border border-dashed p-5 text-muted-foreground hover:cursor-not-allowed"
-            style={isEmpty ? {} : { display: "none" }}
-          >
-            {"Drag Cards Here"}
-          </div>
-        </SortableItem>
-        <Button variant={"outline"}>
-          <PlusIcon />
-        </Button>
-      </div>
+          )}
+          <Button variant={"outline"}>
+            <PlusIcon />
+          </Button>
+        </div>
+      </Droppable>
     </SortableContext>
-    // </Droppable>
+  );
+};
+
+const CardDraggable = ({
+  id,
+  title,
+}: {
+  id: UniqueIdentifier;
+  title?: string;
+}) => {
+  const { activeCard } = useCardStore();
+  return (
+    <SortableItem id={id} itemType="card">
+      <div
+        className={cn(
+          "rounded-md border p-5",
+          activeCard?.id === id && "border-primary text-primary",
+        )}
+      >
+        {title}
+      </div>
+    </SortableItem>
   );
 };
 
@@ -235,7 +262,9 @@ const useCardStore = create<CardStore>()((set, get) => ({
   saveCards: (localStorageKey, cards) => {
     setTimeout(() => {
       const cardString = JSON.stringify(cards ? cards : get().cards);
+      toast.info("starting local save");
       localStorage.setItem(localStorageKey, cardString);
+      toast.success("local save done");
     }, 0);
   },
 }));

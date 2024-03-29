@@ -6,13 +6,19 @@ export const Droppable = ({
   children,
   className,
   disabled,
+  itemType,
 }: {
   id: UniqueIdentifier;
   children?: ReactNode;
   className?: string;
   disabled: boolean;
+  itemType: string;
 }) => {
-  const { setNodeRef } = useDroppable({ id: id, disabled: disabled });
+  const { setNodeRef } = useDroppable({
+    id: id,
+    disabled: disabled,
+    data: { itemType: itemType },
+  });
   console.log("disabled on ", id, " is: ", disabled);
 
   return (

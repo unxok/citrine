@@ -7,14 +7,21 @@ export function SortableItem({
   className,
   children,
   disabled,
+  itemType,
 }: {
   id: string | number;
   className?: string;
   children?: ReactNode;
   disabled?: boolean;
+  itemType: string;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({ id: id });
+    useSortable({
+      id: id,
+      data: {
+        itemType: itemType,
+      },
+    });
 
   //   const [position, setPosition] = useState({
   //     x: 0,
@@ -38,10 +45,12 @@ export function SortableItem({
 
   //   useEffect(() => console.log("transform: ", transform), [transform]);
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
+  const style = disabled
+    ? {}
+    : {
+        transform: CSS.Transform.toString(transform),
+        transition,
+      };
 
   return (
     <div
