@@ -1,4 +1,4 @@
-import React, { ReactNode, useEffect, useState } from "react";
+import { useEffect } from "react";
 import "./App.css";
 import { Toaster } from "./components/ui/sonner";
 import { ThemeProvider } from "./components/ThemeProvider";
@@ -12,7 +12,6 @@ import {
   DragEndEvent,
   DragOverEvent,
   UniqueIdentifier,
-  DragStartEvent,
   DragOverlay,
   Over,
 } from "@dnd-kit/core";
@@ -25,7 +24,6 @@ import {
 } from "@dnd-kit/sortable";
 import { Button } from "./components/ui/button";
 import { PlusIcon } from "@radix-ui/react-icons";
-import { CARD_LS_KEY } from "./lib/consts";
 import { Droppable } from "./components/Droppable";
 import {
   useCardStore,
@@ -33,7 +31,6 @@ import {
   CardDraggable,
   CardPresentational,
 } from "./components/Card";
-import { db } from "./db";
 
 function App() {
   const { cards, setCards, saveCards, activeCard, setActiveCardId, loadCards } =
@@ -48,12 +45,6 @@ function App() {
   useEffect(() => console.log(cards), [cards]);
 
   useEffect(() => {
-    // db.cards.bulkPut([
-    //   { id: 2, title: "card 2", lane: "lane1", orderId: 1 },
-    //   { id: 3, title: "card 3", lane: "lane1", orderId: 2 },
-    //   { id: 1, title: "card 1", lane: "lane1", orderId: 3 },
-    //   { id: 4, title: "card 4", lane: "lane1", orderId: 4 },
-    // ]);
     loadCards();
   }, []);
 
@@ -71,9 +62,9 @@ function App() {
       if ((over?.data.current?.itemType as string) === "lane") {
         // handleDragOver already changed the lane
         // so just save
-        return saveCards(cards);
+        return saveCards();
       }
-      setCards((items) => {
+      return setCards((items) => {
         if (!items) return items;
         const oldIndex = items.findIndex(
           (item) => item.id === Number(active?.id),
@@ -86,6 +77,7 @@ function App() {
         return newCards;
       });
     }
+    saveCards();
   };
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -191,11 +183,14 @@ const LaneDraggable = ({
         disabled={isEmpty ? false : true}
         itemType="lane"
       >
-        {cards?.map(({ id, title }) => (
-          <CardDraggable key={"card-" + id} id={id} title={title} />
-        ))}
+        {cards?.map(
+          ({ id, title }) =>
+            id !== undefined && (
+              <CardDraggable key={"card-" + id} id={id} title={title} />
+            ),
+        )}
         {isEmpty && (
-          <CardPresentational className="border-dashed text-muted-foreground">
+          <CardPresentational className="border text-center text-muted-foreground hover:cursor-not-allowed">
             Drag cards here
           </CardPresentational>
         )}
