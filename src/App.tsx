@@ -30,6 +30,7 @@ import {
   Card,
   CardDraggable,
   CardPresentational,
+  CardDialog,
 } from "./components/Card";
 
 function App() {
@@ -126,7 +127,7 @@ function App() {
         <div className="fixed inset-0 flex items-center justify-center gap-10 bg-background text-primary-foreground">
           <Board lanes={[{ id: "lane1" }, { id: "lane2" }]} cards={cards} />
         </div>
-        <DragOverlay className="bg-background">
+        <DragOverlay>
           {activeCard ? (
             <CardPresentational>{activeCard.title}</CardPresentational>
           ) : null}
@@ -179,14 +180,14 @@ const LaneDraggable = ({
     >
       <Droppable
         id={id}
-        className={`flex h-fit w-0 flex-1 flex-col items-center justify-center gap-5 border p-10`}
+        className={`flex h-fit w-0 flex-1 flex-col items-center justify-center gap-5 border bg-secondary/30 p-10`}
         disabled={isEmpty ? false : true}
         itemType="lane"
       >
         {cards?.map(
-          ({ id, title }) =>
+          ({ id, ...props }) =>
             id !== undefined && (
-              <CardDraggable key={"card-" + id} id={id} title={title} />
+              <CardDraggable key={"card-" + id} id={id} {...props} />
             ),
         )}
         {isEmpty && (
@@ -194,10 +195,21 @@ const LaneDraggable = ({
             Drag cards here
           </CardPresentational>
         )}
+        <AddCardButton laneId={id} />
+      </Droppable>
+    </SortableContext>
+  );
+};
+
+const AddCardButton = ({ laneId }: { laneId: UniqueIdentifier }) => {
+  return (
+    <CardDialog
+      laneId={laneId}
+      trigger={
         <Button variant={"outline"}>
           <PlusIcon />
         </Button>
-      </Droppable>
-    </SortableContext>
+      }
+    ></CardDialog>
   );
 };
