@@ -14,6 +14,7 @@ import {
   UniqueIdentifier,
   DragStartEvent,
   DragOverlay,
+  Over,
 } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -22,17 +23,20 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { SortableItem } from "./components/SortableItem";
 import { Button } from "./components/ui/button";
 import { PlusIcon } from "@radix-ui/react-icons";
-import { create } from "zustand";
 import { CARD_LS_KEY } from "./lib/consts";
-import { cn } from "./lib/utils";
-import { toast } from "sonner";
 import { Droppable } from "./components/Droppable";
+import {
+  useCardStore,
+  Card,
+  CardDraggable,
+  CardPresentational,
+} from "./components/Card";
+import { db } from "./db";
 
 function App() {
-  const { cards, setCards, saveCards, activeCard, setActiveCardId } =
+  const { cards, setCards, saveCards, activeCard, setActiveCardId, loadCards } =
     useCardStore();
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -41,22 +45,34 @@ function App() {
     }),
   );
 
+  useEffect(() => console.log(cards), [cards]);
+
   useEffect(() => {
-    console.log("cards: ", cards);
-    if (!cards) return;
-  }, [cards]);
-  useEffect(() => {
-    const cardString = localStorage.getItem(CARD_LS_KEY);
-    if (!cardString) return;
-    const cardJson = JSON.parse(cardString);
-    setCards(() => cardJson);
+    // db.cards.bulkPut([
+    //   { id: 2, title: "card 2", lane: "lane1", orderId: 1 },
+    //   { id: 3, title: "card 3", lane: "lane1", orderId: 2 },
+    //   { id: 1, title: "card 1", lane: "lane1", orderId: 3 },
+    //   { id: 4, title: "card 4", lane: "lane1", orderId: 4 },
+    // ]);
+    loadCards();
   }, []);
-  //   useEffect(() => console.log("disabledLane: ", disabledLane), [disabledLane]);
+
+  const getLaneId: (over: Over, oldCard: Card) => string = (over, oldCard) => {
+    const { itemType } = over.data.current || {};
+    if (!itemType) return oldCard.lane;
+    if (itemType === "card") return over?.data?.current?.sortable.containerId;
+    if (itemType === "lane") return over.id;
+  };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!Number(active.id)) return;
+    setActiveCardId(null);
     if (active.id !== over?.id) {
+      if ((over?.data.current?.itemType as string) === "lane") {
+        // handleDragOver already changed the lane
+        // so just save
+        return saveCards(cards);
+      }
       setCards((items) => {
         if (!items) return items;
         const oldIndex = items.findIndex(
@@ -66,16 +82,14 @@ function App() {
           (item) => item.id === Number(over?.id),
         );
         const newCards = arrayMove(items, oldIndex, newIndex);
-        saveCards(CARD_LS_KEY, newCards);
+        saveCards(newCards);
         return newCards;
       });
     }
-    setActiveCardId(null);
   };
 
   const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event;
-    console.log("run it run it");
     console.log("active: ", active);
     console.log("over: ", over);
 
@@ -96,13 +110,7 @@ function App() {
             }
             const copyItems = [...items];
             const oldCard = { ...copyItems[oldIndex] };
-            const newLaneId: string = (() => {
-              const { itemType } = over.data.current || {};
-              if (!itemType) return oldCard.lane;
-              if (itemType === "card")
-                return over?.data?.current?.sortable.containerId;
-              if (itemType === "lane") return over.id;
-            })();
+            const newLaneId = getLaneId(over, oldCard);
             copyItems[oldIndex] = {
               ...oldCard,
               lane: newLaneId,
@@ -124,14 +132,11 @@ function App() {
       >
         <Toaster richColors toastOptions={{}} visibleToasts={100} />
         <div className="fixed inset-0 flex items-center justify-center gap-10 bg-background text-primary-foreground">
-          Well hello there
           <Board lanes={[{ id: "lane1" }, { id: "lane2" }]} cards={cards} />
         </div>
         <DragOverlay className="bg-background">
           {activeCard ? (
-            <div className="opacity-1 rounded-md border p-5">
-              {activeCard.title}
-            </div>
+            <CardPresentational>{activeCard.title}</CardPresentational>
           ) : null}
         </DragOverlay>
       </DndContext>
@@ -141,31 +146,35 @@ function App() {
 
 export default App;
 
-const Board = ({ lanes, cards }: { lanes?: any; cards?: Card[] }) => {
+const Board = ({ lanes, cards }: { lanes?: Lane[]; cards?: Card[] }) => {
   //
   return (
-    <div className="flex flex-row items-center justify-center gap-3 border p-10">
-      {lanes.map(({ id }) => (
-        <Lane
+    <div className="flex w-5/6 flex-row items-center justify-center gap-3 border p-10">
+      {lanes?.map(({ id }) => (
+        <LaneDraggable
           key={id}
           id={id}
-          items={cards?.filter((item) => item.lane === id)}
+          cards={cards?.filter((item) => item.lane === id)}
         />
       ))}
     </div>
   );
 };
 
-const Lane = ({
+type Lane = {
+  id: UniqueIdentifier;
+};
+
+const LaneDraggable = ({
   id,
-  items,
   direction = "vertical",
+  cards,
 }: {
   id: UniqueIdentifier;
-  items?: Card[];
   direction?: "vertical" | "horizontal";
+  cards?: Card[];
 }) => {
-  const isEmpty = !items?.length;
+  const isEmpty = !cards?.length;
   const [sortStrat, flexDir] =
     direction === "vertical"
       ? [verticalListSortingStrategy, "flex-col"]
@@ -173,98 +182,27 @@ const Lane = ({
   return (
     <SortableContext
       id={id.toString()}
-      items={items ?? []}
+      items={cards ?? []}
       strategy={sortStrat}
     >
-      <Droppable id={id} disabled={isEmpty ? false : true} itemType="lane">
-        <div className={`flex h-fit w-fit gap-5 border p-10 ${flexDir}`}>
-          {items?.map(({ id, title }) => (
-            <CardDraggable key={"card-" + id} id={id} title={title} />
-          ))}
-          {isEmpty && (
-            <div className="rounded-md border border-dashed p-5 text-muted-foreground hover:cursor-not-allowed">
-              {"Drag Cards Here"}
-            </div>
-          )}
-          <Button variant={"outline"}>
-            <PlusIcon />
-          </Button>
-        </div>
+      <Droppable
+        id={id}
+        className={`flex h-fit w-0 flex-1 flex-col items-center justify-center gap-5 border p-10`}
+        disabled={isEmpty ? false : true}
+        itemType="lane"
+      >
+        {cards?.map(({ id, title }) => (
+          <CardDraggable key={"card-" + id} id={id} title={title} />
+        ))}
+        {isEmpty && (
+          <CardPresentational className="border-dashed text-muted-foreground">
+            Drag cards here
+          </CardPresentational>
+        )}
+        <Button variant={"outline"}>
+          <PlusIcon />
+        </Button>
       </Droppable>
     </SortableContext>
   );
 };
-
-const CardDraggable = ({
-  id,
-  title,
-}: {
-  id: UniqueIdentifier;
-  title?: string;
-}) => {
-  const { activeCard } = useCardStore();
-  return (
-    <SortableItem id={id} itemType="card">
-      <div
-        className={cn(
-          "rounded-md border p-5",
-          activeCard?.id === id && "border-primary text-primary",
-        )}
-      >
-        {title}
-      </div>
-    </SortableItem>
-  );
-};
-
-type Card = {
-  id: UniqueIdentifier;
-  title?: string;
-  lane: string;
-};
-
-type CardStore = {
-  cards?: Card[];
-  activeCard?: Card | null;
-  setActiveCardId: (id: UniqueIdentifier | null) => void;
-  addCard: (card: Card) => void;
-  setCards: (callback: (cards?: Card[]) => Card[] | undefined) => void;
-  saveCards: (localStorageKey: string, cards?: Card[]) => void;
-};
-
-const useCardStore = create<CardStore>()((set, get) => ({
-  cards: undefined,
-  activeCard: undefined,
-  setActiveCardId: (id) => {
-    set((state) => ({
-      ...state,
-      activeCard: state?.cards?.find((c) => c.id === id) ?? null,
-    }));
-  },
-  addCard: (card) => {
-    set((state) => ({
-      ...state,
-      cards: state.cards ? [...state.cards, card] : [card],
-    }));
-  },
-  setCards: (callback) => {
-    set((state) => {
-      const newCards = callback(state.cards ? [...state?.cards] : undefined);
-      if (JSON.stringify(newCards) === JSON.stringify(state?.cards)) {
-        return state;
-      }
-      return {
-        ...state,
-        cards: newCards,
-      };
-    });
-  },
-  saveCards: (localStorageKey, cards) => {
-    setTimeout(() => {
-      const cardString = JSON.stringify(cards ? cards : get().cards);
-      toast.info("starting local save");
-      localStorage.setItem(localStorageKey, cardString);
-      toast.success("local save done");
-    }, 0);
-  },
-}));

@@ -19,7 +19,6 @@ export const Droppable = ({
     disabled: disabled,
     data: { itemType: itemType },
   });
-  console.log("disabled on ", id, " is: ", disabled);
 
   return (
     <div className={className} ref={setNodeRef}>
