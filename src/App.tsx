@@ -253,19 +253,19 @@ const Header = () => {
           </Tooltip>
         </TooltipProvider>
         <a
-          href="https://github.com/unxok/panel-offline"
+          href="https://github.com/unxok/citrine"
           className="hover:underline hover:underline-offset-4"
         >
           About
         </a>
         <a
-          href="https://github.com/unxok/panel-offline"
+          href="https://github.com/unxok/citrine"
           className="hover:underline hover:underline-offset-4"
         >
           Community
         </a>
         <a
-          href="https://github.com/unxok/panel-offline"
+          href="https://github.com/unxok/citrine"
           className="hover:underline hover:underline-offset-4"
         >
           Docs
