@@ -227,7 +227,7 @@ const MarkdownInput = ({
         </TabsList>
       </Tabs>
       {showPreview ? (
-        <div className="markdown-body whitespace-pre-wrap rounded-md border !bg-transparent p-5">
+        <div className="markdown-body whitespace-pre-wrap rounded-md border !bg-transparent !text-primary-foreground p-5">
           <Markdown>{formValue ?? ""}</Markdown>
         </div>
       ) : (
@@ -250,7 +250,7 @@ const MarkdownInput = ({
 };
 
 const CardView = ({ title, description, notes }: Card) => (
-  <div className="markdown-body whitespace-pre !bg-transparent">
+  <div className="markdown-body whitespace-pre !bg-transparent !text-primary-foreground">
     <h1>{title}</h1>
     <p>{description}</p>
     <div>
