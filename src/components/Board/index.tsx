@@ -4,7 +4,6 @@ import { toast } from "sonner";
 import { create } from "zustand";
 import { Card } from "../Card";
 import { Lane, LaneDraggable } from "../Lane";
-import { ResizablePanel } from "../ui/resizable";
 import { buttonVariants } from "@/components/ui/button";
 import {
   DialogHeader,

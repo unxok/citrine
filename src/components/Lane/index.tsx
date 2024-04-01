@@ -1,15 +1,12 @@
 import { UniqueIdentifier } from "@dnd-kit/core";
 import {
   verticalListSortingStrategy,
-  horizontalListSortingStrategy,
   SortableContext,
 } from "@dnd-kit/sortable";
 import { PlusIcon } from "lucide-react";
 import { Card, CardDraggable, CardPresentational, CardDialog } from "../Card";
 import { Droppable } from "../Droppable";
 import { Button } from "../ui/button";
-import { ScrollArea } from "../ui/scroll-area";
-import { useState } from "react";
 
 export type Lane = {
   id: UniqueIdentifier;

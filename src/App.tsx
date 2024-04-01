@@ -47,6 +47,16 @@ import {
 } from "./components/ui/accordion";
 import { Checkbox } from "./components/ui/checkbox";
 import { Board, BoardDialog, useBoardStore } from "./components/Board";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "./components/ui/sheet";
+import { toast } from "sonner";
+import { downloadToFile } from "./lib/utils";
 
 function App() {
   const { cards, setCards, saveCards, activeCard, setActiveCardId } =
@@ -262,6 +272,91 @@ const Header = () => {
         </a>
       </nav>
       <div className="flex items-center justify-end">
+        <SettingsSheet />
+      </div>
+    </div>
+  );
+};
+
+const SettingsSheet = () => {
+  const copyLSToClipboard = () => {
+    navigator.clipboard.writeText(JSON.stringify(localStorage));
+    toast.success("Save data copied to clipboard");
+  };
+
+  const exportToFile = () => {
+    downloadToFile(
+      JSON.stringify(localStorage),
+      "save.citrine",
+      "application/json",
+    );
+  };
+
+  const importFromFile = () => {
+    const inp = document.createElement("input");
+    const reader = new FileReader();
+    inp.type = "file";
+
+    inp.addEventListener("change", () => {
+      const file = inp?.files?.[0];
+      if (!file) {
+        toast.error("Import save data failed! \nNo data was provided");
+        return;
+      }
+      reader.readAsText(file);
+    });
+
+    reader.addEventListener("load", () => {
+      if (!(typeof reader.result === "string")) {
+        toast.error("Import save data failed!\nUnexpected file contents");
+        return;
+      }
+      try {
+        const json = JSON.parse(reader.result);
+        Object.keys(json).forEach((k) => localStorage.setItem(k, json[k]));
+        window.location.reload();
+        return;
+      } catch (e) {
+        toast.error(
+          "Import save data failed! \nCheck console for more information",
+        );
+        console.error(
+          "Error occured when attempting to parse JSON from text provided. ",
+          e,
+        );
+        return;
+      }
+    });
+
+    inp.click();
+  };
+
+  const importLSFromClipboard = () => {
+    const text = window.prompt("Please paste your save data below");
+    if (!text) {
+      toast.error("Import save data failed! \nNo data was provided");
+      return;
+    }
+    try {
+      const json = JSON.parse(text);
+      Object.keys(json).forEach((k) => localStorage.setItem(k, json[k]));
+      window.location.reload();
+      return;
+    } catch (e) {
+      toast.error(
+        "Import save data failed! \nCheck console for more information",
+      );
+      console.error(
+        "Error occured when attempting to parse JSON from text provided. ",
+        e,
+      );
+      return;
+    }
+  };
+
+  return (
+    <Sheet>
+      <SheetTrigger asChild>
         <Button variant={"ghost"} className="group">
           <GearIcon
             width={20}
@@ -269,8 +364,45 @@ const Header = () => {
             className="group-hover:animate-spin"
           />
         </Button>
-      </div>
-    </div>
+      </SheetTrigger>
+      <SheetContent>
+        <SheetHeader>
+          <SheetTitle>Tools & Settings</SheetTitle>
+          <SheetDescription>
+            <div>Export</div>
+            <Button
+              variant={"ghost"}
+              className="w-full justify-start"
+              onClick={() => copyLSToClipboard()}
+            >
+              To clipboard
+            </Button>
+            <Button
+              variant={"ghost"}
+              className="w-full justify-start"
+              onClick={() => exportToFile()}
+            >
+              To save file
+            </Button>
+            <div>Import</div>
+            <Button
+              variant={"ghost"}
+              className="w-full justify-start"
+              onClick={() => importLSFromClipboard()}
+            >
+              From clipboard
+            </Button>
+            <Button
+              variant={"ghost"}
+              className="w-full justify-start"
+              onClick={() => importFromFile()}
+            >
+              From save file
+            </Button>
+          </SheetDescription>
+        </SheetHeader>
+      </SheetContent>
+    </Sheet>
   );
 };
 

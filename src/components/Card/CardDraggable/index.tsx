@@ -8,11 +8,11 @@ import {
   ContextMenuSeparator,
   ContextMenuCheckboxItem,
 } from "@/components/ui/context-menu";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export const CardDraggable = (props: Card) => {
-  const { id, title, description, lane, showNotes } = props;
-  if (!lane) {
+  const { id, board, lane, showNotes } = props;
+  if (!lane || !board) {
     // TODO deal with this
     return;
   }
@@ -49,6 +49,7 @@ export const CardDraggable = (props: Card) => {
       </CardContextMenuWrapper>
       <CardDialog
         laneId={lane}
+        boardId={board}
         defaultData={{ ...props }}
         open={dialogEditOpen}
         setOpen={setDialogEditOpen}
@@ -56,6 +57,7 @@ export const CardDraggable = (props: Card) => {
       />
       <CardDialog
         laneId={lane}
+        boardId={board}
         defaultData={{ ...props }}
         open={dialogViewOpen}
         setOpen={setDialogViewOpen}
@@ -84,14 +86,14 @@ export const CardContextMenuContent = ({
   return (
     <ContextMenuContent>
       <ContextMenuItem
-        onClick={(e) => {
+        onClick={() => {
           setViewOpen(true);
         }}
       >
         View
       </ContextMenuItem>
       <ContextMenuItem
-        onClick={(e) => {
+        onClick={() => {
           setEditOpen(true);
         }}
       >
