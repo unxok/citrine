@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 import { Toaster } from "./components/ui/sonner";
 import { ThemeProvider } from "./components/ThemeProvider";
@@ -13,22 +13,22 @@ import {
   DragOverEvent,
   DragOverlay,
   Over,
-  UniqueIdentifier,
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { useCardStore, Card, CardPresentational } from "./components/Card";
-import { Lane, LaneDraggable } from "./components/Lane";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "./components/ui/resizable";
-import { GearIcon } from "@radix-ui/react-icons";
+import { GearIcon, Pencil2Icon } from "@radix-ui/react-icons";
 import { Button } from "./components/ui/button";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "./components/ui/select";
@@ -39,10 +39,19 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "./components/ui/tooltip";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "./components/ui/accordion";
+import { Checkbox } from "./components/ui/checkbox";
+import { Board, BoardDialog, useBoardStore } from "./components/Board";
 
 function App() {
   const { cards, setCards, saveCards, activeCard, setActiveCardId } =
     useCardStore();
+  const { boards } = useBoardStore();
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -140,9 +149,29 @@ function App() {
             <Header />
           </ResizablePanel>
           <ResizableHandle />
-          <ResizablePanel className="scrollbar-track-transparent scrollbar-thin scrollbar-thumb-primary h-full w-full !overflow-y-auto p-5">
-            <main className="flex items-start justify-center gap-10">
-              <Board
+          <ResizablePanel className="h-full w-full">
+            <ResizablePanelGroup
+              direction="horizontal"
+              autoSaveId={"layout-center-save"}
+              className="bg-background text-primary-foreground"
+            >
+              <ResizablePanel className="h-full w-full !overflow-y-auto p-5 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-primary">
+                <Left />
+              </ResizablePanel>
+              <ResizableHandle
+                className={`data-[resize-handle-state=inactive]:bg-transparent`}
+              />
+              <ResizablePanel className="!overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-primary">
+                <div className="flex flex-col items-start justify-start">
+                  {boards?.map((b) => (
+                    <Board
+                      {...b}
+                      cards={cards?.filter((c) => c.board === b.id)}
+                    />
+                  ))}
+                </div>
+              </ResizablePanel>
+              {/* <Board
                 id={1}
                 title={"Test Board"}
                 lanes={[
@@ -151,8 +180,8 @@ function App() {
                   { id: "lane3", title: "DONE", board: 1 },
                 ]}
                 cards={cards?.filter((c) => c.board === 1)}
-              />
-            </main>
+              /> */}
+            </ResizablePanelGroup>
           </ResizablePanel>
         </ResizablePanelGroup>
         <DragOverlay>
@@ -186,14 +215,14 @@ const Header = () => {
         <span className="font-mono text-5xl font-extrabold">citrine</span>
       </div>
       <nav className="flex h-full w-full flex-row items-center justify-center gap-5">
-        <Select>
+        {/* <Select>
           <SelectTrigger defaultValue={"all"} className="w-fit">
             All Boards
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Boards</SelectItem>
           </SelectContent>
-        </Select>
+        </Select> */}
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger>
@@ -213,7 +242,18 @@ const Header = () => {
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-
+        <a
+          href="https://github.com/unxok/panel-offline"
+          className="hover:underline hover:underline-offset-4"
+        >
+          About
+        </a>
+        <a
+          href="https://github.com/unxok/panel-offline"
+          className="hover:underline hover:underline-offset-4"
+        >
+          Community
+        </a>
         <a
           href="https://github.com/unxok/panel-offline"
           className="hover:underline hover:underline-offset-4"
@@ -234,62 +274,195 @@ const Header = () => {
   );
 };
 
-type Board = {
-  id: UniqueIdentifier;
-  title?: string;
-  lanes?: Lane[];
-  cards?: Card[];
-};
-const Board = ({ title, lanes, cards }: Board) => {
-  const boardRef = useRef<HTMLDivElement>(null);
-  const [isOverflown, setOverflown] = useState(false);
+type SortCallback = ((a: Card, b: Card) => number) | undefined;
+const sortAZ: SortCallback = (a, b) =>
+  a?.title?.localeCompare(b?.title ?? "") ?? 0;
+const sortZA: SortCallback = (a, b) =>
+  -1 * (a.title?.localeCompare(b?.title ?? "") ?? 0);
+const sortNewest: SortCallback = (a, b) => Number(a.id) - Number(b.id);
+const sortOldest: SortCallback = (a, b) => Number(b.id) - Number(a.id);
 
-  useEffect(() => {
-    const updateOverflow = () => {
-      const boardEl = boardRef.current;
-      if (!boardEl) return;
-      const checkOverflown = boardEl.scrollWidth > boardEl.clientWidth;
-      setOverflown(checkOverflown);
-    };
-    updateOverflow();
-    window.addEventListener("resize", updateOverflow);
-    return () => {
-      window.removeEventListener("resize", updateOverflow);
-    };
-  }, []);
+const Left = () => {
+  const [boardDialogOpen, setBoardDialogOpen] = useState(false);
   return (
-    <div
-      ref={boardRef}
-      className={`scrollbar scrollbar-track-transparent scrollbar-thumb-primary flex h-fit w-fit flex-col overflow-x-auto border p-10 ${isOverflown ? "items-start" : "items-center"}`}
-    >
-      <div className="flex w-full flex-row justify-start gap-2 pb-5">
-        <div className="text-xl font-bold tracking-widest">
-          {title ?? "Unnamed Board"}
+    <>
+      <div className="flex h-full w-full flex-col items-center justify-start gap-5">
+        <div className="flex h-fit w-1/2 items-center justify-center gap-5">
+          <Button
+            onClick={() => setBoardDialogOpen((b) => !b)}
+            className="w-full min-w-20 max-w-36"
+          >
+            Add board
+          </Button>
+          <Button disabled className="w-full min-w-20 max-w-36">
+            Add view
+          </Button>
         </div>
-        <div className="text-muted-foreground">{cards?.length}</div>
+        <CardsAccordion />
       </div>
-      <div className="relative flex flex-row items-start justify-center gap-3">
-        {lanes?.map((props) => (
-          <LaneDraggable
-            key={props.id}
-            {...props}
-            cards={cards?.filter((item) => item.lane === props.id)}
-          />
-        ))}
-      </div>
-    </div>
+      <BoardDialog
+        open={boardDialogOpen}
+        setOpen={setBoardDialogOpen}
+        defaultMode="edit"
+      />
+    </>
   );
 };
 
-// type BoardStore = {
-//   boards?: Board[];
-//   setBoards: (callback: (cards?: Card[]) => Card[] | undefined) => void;
+const CardsAccordion = () => {
+  const { cards } = useCardStore();
+  const [sortCb, setSortCb] = useState<SortCallback>(() => sortAZ);
+  const [sortType, setSortType] = useState("sortAZ");
+
+  useEffect(() => {
+    switch (sortType) {
+      case "sortAZ":
+        return setSortCb(() => sortAZ);
+      case "sortZA":
+        return setSortCb(() => sortZA);
+      case "sortNewest":
+        return setSortCb(() => sortNewest);
+      case "sortOldest":
+        return setSortCb(() => sortOldest);
+    }
+  }, [sortType]);
+
+  return (
+    <Accordion type="single" collapsible className="w-full">
+      <AccordionItem value="item-1">
+        <AccordionTrigger className="w-full">Cards</AccordionTrigger>
+        <AccordionContent className="w-full p-1">
+          <Select value={sortType} onValueChange={(v) => setSortType(v)}>
+            <SelectTrigger className="mb-1 w-fit gap-1 border-none">
+              <div className="text-muted-foreground">Sort by</div>
+              <SelectValue></SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>Title</SelectLabel>
+                <SelectItem value={"sortAZ"}>A to Z</SelectItem>
+                <SelectItem value={"sortZA"}>Z to A</SelectItem>
+              </SelectGroup>
+              <SelectGroup>
+                <SelectLabel>Creation</SelectLabel>
+                <SelectItem value={"sortNewest"}>Newest first</SelectItem>
+                <SelectItem value={"sortOldest"}>Oldest first</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          <div className="w-full">
+            {cards?.toSorted(sortCb).map((c) => (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger className="w-full">
+                    <Button
+                      variant={"ghost"}
+                      className="h-fit w-full flex-col items-start justify-center truncate"
+                    >
+                      <div className="flex gap-1">
+                        {c.title}{" "}
+                        {c.notes && <Pencil2Icon className="text-primary" />}
+                      </div>
+                      <em className="text-muted-foreground">{c.description}</em>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <div className="flex items-center justify-center gap-2">
+                      {c.notes && (
+                        <>
+                          <div>contains notes</div>
+                          <Checkbox checked />
+                        </>
+                      )}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ))}
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
+  );
+};
+
+// const BoardsAccordion = () => {
+//   const { cards } = useCardStore();
+//   const [sortCb, setSortCb] = useState<SortCallback>(() => sortAZ);
+//   const [sortType, setSortType] = useState("sortAZ");
+
+//   useEffect(() => {
+//     switch (sortType) {
+//       case "sortAZ":
+//         return setSortCb(() => sortAZ);
+//       case "sortZA":
+//         return setSortCb(() => sortZA);
+//       case "sortNewest":
+//         return setSortCb(() => sortNewest);
+//       case "sortOldest":
+//         return setSortCb(() => sortOldest);
+//     }
+//   }, [sortType]);
+
+//   return (
+//     <Accordion type="single" collapsible className="w-full">
+//       <AccordionItem value="item-1">
+//         <AccordionTrigger className="w-full">Cards</AccordionTrigger>
+//         <AccordionContent className="w-full p-1">
+//           <Select value={sortType} onValueChange={(v) => setSortType(v)}>
+//             <SelectTrigger className="w-fit gap-1 border-none">
+//               <div className="text-muted-foreground">Sort by</div>
+//               <SelectValue></SelectValue>
+//             </SelectTrigger>
+//             <SelectContent>
+//               <SelectGroup>
+//                 <SelectLabel>Title</SelectLabel>
+//                 <SelectItem value={"sortAZ"}>A to Z</SelectItem>
+//                 <SelectItem value={"sortZA"}>Z to A</SelectItem>
+//               </SelectGroup>
+//               <SelectGroup>
+//                 <SelectLabel>Creation</SelectLabel>
+//                 <SelectItem value={"sortNewest"}>Newest first</SelectItem>
+//                 <SelectItem value={"sortOldest"}>Oldest first</SelectItem>
+//               </SelectGroup>
+//             </SelectContent>
+//           </Select>
+//           <div className="w-full">
+//             {cards?.toSorted(sortCb).map((c) => (
+//               <TooltipProvider>
+//                 <Tooltip>
+//                   <TooltipTrigger className="w-full">
+//                     <Button
+//                       variant={"ghost"}
+//                       className="h-fit w-full flex-col items-start justify-center truncate"
+//                     >
+//                       <div className="flex gap-1">
+//                         {c.title}{" "}
+//                         {c.notes && <Pencil2Icon className="text-primary" />}
+//                       </div>
+//                       <em className="text-muted-foreground">{c.description}</em>
+//                     </Button>
+//                   </TooltipTrigger>
+//                   <TooltipContent>
+//                     <div className="flex items-center justify-center gap-2">
+//                       {c.notes && (
+//                         <>
+//                           <div>contains notes</div>
+//                           <Checkbox checked />
+//                         </>
+//                       )}
+//                     </div>
+//                   </TooltipContent>
+//                 </Tooltip>
+//               </TooltipProvider>
+//             ))}
+//           </div>
+//         </AccordionContent>
+//       </AccordionItem>
+//     </Accordion>
+//   );
 // };
 
-// const loadBards = () => {
-//   const localBoards = local
-// }
+// const CenterMiddle = () => {
 
-// export const useBoardStore = create<BoardStore>()((set, get) => ({
-//   boards:
-// }))
+// }

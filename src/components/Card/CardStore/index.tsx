@@ -15,7 +15,7 @@ type CardStore = {
   nextAvailableId: number;
 };
 
-const loadCards = () => {
+const loadCards: () => Card[] | undefined = () => {
   const localCards = localStorage.getItem(CARD_LS_KEY);
   if (!localCards) return;
   try {
@@ -70,7 +70,7 @@ export const useCardStore = create<CardStore>()((set, get) => ({
   },
   setCards: (callback) => {
     set((state) => {
-      const newCards = callback(state.cards ? [...state?.cards] : undefined);
+      const newCards = callback(state.cards);
       //   if (JSON.stringify(newCards) === JSON.stringify(state?.cards)) {
       //     return state;
       //   }
@@ -80,7 +80,7 @@ export const useCardStore = create<CardStore>()((set, get) => ({
       };
     });
   },
-  saveCards: async (passedCards) => {
+  saveCards: (passedCards) => {
     console.log("saving cards...");
     const { cards, nextAvailableId } = get();
     const newCards = passedCards ? passedCards : cards;
