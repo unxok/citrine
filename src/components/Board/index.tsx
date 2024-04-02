@@ -497,7 +497,7 @@ export const BoardContextMenuContent = ({
                 setCards((cards) => {
                   if (!cards) return [];
                   return cards.filter(
-                    (c) => c.board !== l.board && c.lane !== l.id,
+                    (c) => !(c.board === l.board && c.lane === l.id),
                   );
                 });
                 addBoard({
