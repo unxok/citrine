@@ -520,9 +520,9 @@ const SettingsSheet = () => {
 };
 
 type SortCallback = ((a: Card, b: Card) => number) | undefined;
-const sortAZ: SortCallback = (a, b) =>
-  a?.title?.localeCompare(b?.title ?? "") ?? 0;
 const sortZA: SortCallback = (a, b) =>
+  a?.title?.localeCompare(b?.title ?? "") ?? 0;
+const sortAZ: SortCallback = (a, b) =>
   -1 * (a.title?.localeCompare(b?.title ?? "") ?? 0);
 const sortNewest: SortCallback = (a, b) => Number(a.id) - Number(b.id);
 const sortOldest: SortCallback = (a, b) => Number(b.id) - Number(a.id);
