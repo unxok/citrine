@@ -13,13 +13,13 @@ jobs:
     - name: Configure Git
       run: |
         git config --global user.email "me@unxok.com"
-        git config --global user.name "panel-offline[bot]"
+        git config --global user.name "unxok[bot]"
 
     - name: Commit and Push dist to gh-pages
       run: |
         git add dist
         git commit -m "Initial dist subtree commit" || echo "No changes to commit"
-        git subtree push --prefix dist origin gh-pages
+        git push origin `git subtree split --prefix dist main`:gh-pages --force
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

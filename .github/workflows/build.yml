@@ -1,0 +1,27 @@
+name: Build for Prod
+
+on: workflow_dispatch
+
+
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0 # Fetches all history for all tags and branches
+
+    - name: Configure Git
+      run: |
+        git config --global user.email "me@unxok.com"
+        git config --global user.name "unxok[bot]"
+
+
+    - name: Build
+      run: |
+        npm install
+        npm run build
+        git add .
+        git commit -m "Ran auto build"
+        git push origin

@@ -25,7 +25,7 @@ export const CardPresentational = ({
           <div className="text-lg font-semibold tracking-wide">{title}</div>
           <div className="text-muted-foreground">{description}</div>
           {!!showNotes && (
-            <div className="markdown-body whitespace-pre-wrap !bg-transparent pt-3">
+            <div className="markdown-body whitespace-pre-wrap !bg-transparent !text-primary-foreground pt-3">
               <Markdown>{notes ?? ""}</Markdown>
             </div>
           )}
