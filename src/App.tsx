@@ -388,7 +388,7 @@ const SettingsSheet = () => {
     }
     const csv = cards.reduce((acc, card) => {
       const boardTitle = boards.find(b => b.id === card.board)?.title;
-      const laneTitle = boards.find(b => b?.lanes?.some(l => l.id === card.lane))?.title;
+      const laneTitle = boards.find(b => b.id === card.board)?.lanes?.find(l => l.id === card.lane)?.title;
       const arr = [`${card.id}`, `"${card?.title}"`, `"${card?.description}"`, `"${boardTitle}"`, `"${laneTitle}"`, `"${card?.notes}"`, `"${card?.created}"`, `"${card?.modified}"`]
       const row = arr.join(delim);
       return acc + '\n' + row;
