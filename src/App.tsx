@@ -386,7 +386,8 @@ const SettingsSheet = () => {
     if (!cards || !boards) {
       return toast.error('There are no cards to export!')
     }
-    const csv = cards.reduce((acc, card) => {
+    const header = ['Id', 'Title', 'Description', 'Board', 'Lane', 'Notes', 'Created', 'Modified'].join(delim) + '\n';
+    const csv = header + cards.reduce((acc, card) => {
       const boardTitle = boards.find(b => b.id === card.board)?.title;
       const laneTitle = boards.find(b => b.id === card.board)?.lanes?.find(l => l.id === card.lane)?.title;
       const arr = [`${card.id}`, `"${card?.title}"`, `"${card?.description}"`, `"${boardTitle}"`, `"${laneTitle}"`, `"${card?.notes}"`, `"${card?.created}"`, `"${card?.modified}"`]
