@@ -383,12 +383,12 @@ const SettingsSheet = () => {
   };
 
   const exportToCSV = (delim: string) => {
-    if (!cards || !boards || !boards?.lanes) {
+    if (!cards || !boards) {
       return toast.error('There are no cards to export!')
     }
     const csv = cards.reduce((acc, card) => {
       const boardTitle = boards.find(b => b.id === card.board)?.title;
-      const laneTitle = boards.find(b => b.lanes.some(l => l.id === card.lane))?.title;
+      const laneTitle = boards.find(b => b?.lanes?.some(l => l.id === card.lane))?.title;
       const arr = [card.id, card?.title, card?.description, boardTitle, laneTitle, card?.notes, card?.created, card?.modified]
       const row = arr.join(delim);
       return acc + '\n' + row;
