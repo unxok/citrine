@@ -396,6 +396,11 @@ const SettingsSheet = () => {
     downloadToFile(csv, 'citrine.csv', 'text/csv');
   }
 
+  const exportToHTML = () => {
+    const html = document.documentElement.innerHTML;
+    downloadToFile(html, 'citrine.html', 'text/html');
+  }
+
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -438,6 +443,15 @@ const SettingsSheet = () => {
               }}
             >
               To CSV file
+            </Button>
+            <Button
+              variant={"ghost"}
+              className="w-full justify-start"
+              onClick={() => {
+                exportToHTML();
+              }}
+            >
+              To HTML file
             </Button>
             <div>Import</div>
             <Button
