@@ -7,6 +7,7 @@ import { PlusIcon } from "lucide-react";
 import { Card, CardDraggable, CardPresentational, CardDialog } from "../Card";
 import { Droppable } from "../Droppable";
 import { Button } from "../ui/button";
+import { useState } from "react";
 
 export type Lane = {
   id: UniqueIdentifier;
@@ -21,6 +22,8 @@ export const LaneDraggable = ({
   cards,
 }: Lane & { cards?: Card[] }) => {
   const isEmpty = !cards?.length;
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
   return (
     <SortableContext
       id={id.toString()}
@@ -32,12 +35,20 @@ export const LaneDraggable = ({
         className={`relative flex h-fit w-0 min-w-60 flex-1 flex-col items-center justify-center border bg-secondary/30 p-5`}
         disabled={isEmpty ? false : true}
         itemType="lane"
+        boardId={board}
       >
         <div className="flex w-full flex-row items-center justify-center gap-2 pb-3">
-          <div className="text-lg font-semibold tracking-widest">{title}</div>
+          <div
+            onClick={() => setIsCollapsed((b) => !b)}
+            className="text-lg font-semibold tracking-widest hover:cursor-pointer"
+          >
+            {title}
+          </div>
           <div className="text-sm text-muted-foreground">{cards?.length}</div>
         </div>
-        <div className="flex h-full max-h-full w-full flex-col items-start justify-start gap-5">
+        <div
+          className={`flex h-full max-h-full w-full flex-col items-start justify-start gap-5 ${isCollapsed && "hidden"}`}
+        >
           {cards?.map(
             ({ id, ...props }) =>
               id !== undefined && (
@@ -46,7 +57,10 @@ export const LaneDraggable = ({
           )}
         </div>
         {isEmpty && (
-          <CardPresentational className="border-transparent bg-transparent text-center text-muted-foreground hover:cursor-not-allowed">
+          <CardPresentational
+            id={Math.random()}
+            className="border-transparent bg-transparent text-center text-muted-foreground hover:cursor-not-allowed"
+          >
             <i>Drag cards here or use the button below to add one</i>
           </CardPresentational>
         )}

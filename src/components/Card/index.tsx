@@ -12,6 +12,8 @@ export type Card = {
   description?: string;
   notes?: string;
   showNotes?: boolean;
+  created?: string;
+  modified?: string;
 };
 
 export { useCardStore, CardPresentational, CardDialog, CardDraggable };

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 import { Toaster } from "./components/ui/sonner";
-import { ThemeProvider } from "./components/ThemeProvider";
+import { ThemeProvider, useTheme } from "./components/ThemeProvider";
 import {
   DndContext,
   closestCenter,
@@ -21,7 +21,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "./components/ui/resizable";
-import { GearIcon, Pencil2Icon } from "@radix-ui/react-icons";
+import { FileTextIcon, GearIcon } from "@radix-ui/react-icons";
 import { Button } from "./components/ui/button";
 import {
   Select,
@@ -45,7 +45,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "./components/ui/accordion";
-import { Checkbox } from "./components/ui/checkbox";
 import { Board, BoardDialog, useBoardStore } from "./components/Board";
 import {
   Sheet,
@@ -57,6 +56,8 @@ import {
 } from "./components/ui/sheet";
 import { toast } from "sonner";
 import { downloadToFile } from "./lib/utils";
+import { CardTooltip } from "./components/Card/CardDraggable";
+import { Separator } from "./components/ui/separator";
 
 function App() {
   const { cards, setCards, saveCards, activeCard, setActiveCardId } =
@@ -69,17 +70,22 @@ function App() {
     }),
   );
 
-  useEffect(() => console.log(cards), [cards]);
+  // useEffect(() => console.log(cards), [cards]);
 
   // useEffect(() => {
   //   loadCards();
   // }, []);
 
-  const getLaneId: (over: Over, oldCard: Card) => string = (over, oldCard) => {
-    const { itemType } = over.data.current || {};
-    if (!itemType) return oldCard.lane;
-    if (itemType === "card") return over?.data?.current?.sortable.containerId;
-    if (itemType === "lane") return over.id;
+  const getBoardAndLaneId = (over: Over, oldCard: Card) => {
+    const { itemType, boardId } = over.data.current || {};
+    if (!itemType) return { laneId: oldCard.lane, boardId: oldCard.board };
+    if (itemType === "card")
+      return {
+        laneId: over?.data?.current?.sortable.containerId as string,
+        boardId: boardId as string,
+      };
+    if (itemType === "lane") return { laneId: over.id, boardId: boardId };
+    return { laneId: "", boardId: "" };
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -109,8 +115,8 @@ function App() {
 
   const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event;
-    console.log("active: ", active);
-    console.log("over: ", over);
+    // console.log("active: ", active);
+    // console.log("over: ", over);
 
     setActiveCardId(active.id);
     if (active.id !== over?.id) {
@@ -129,10 +135,12 @@ function App() {
             }
             const copyItems = [...items];
             const oldCard = { ...copyItems[oldIndex] };
-            const newLaneId = getLaneId(over, oldCard);
+            const { laneId, boardId } = getBoardAndLaneId(over, oldCard);
             copyItems[oldIndex] = {
               ...oldCard,
-              lane: newLaneId,
+              lane: laneId,
+              board: boardId,
+              modified: new Date().toLocaleString("en-US"),
             };
             return copyItems;
           }),
@@ -153,9 +161,15 @@ function App() {
         <ResizablePanelGroup
           direction="vertical"
           autoSaveId={"layout-save"}
-          className="fixed inset-0 bg-background text-primary-foreground"
+          className="fixed inset-0 bg-background text-foreground"
         >
-          <ResizablePanel className="relative">
+          <ResizablePanel
+            className="relative"
+            minSize={5}
+            defaultSize={10}
+            collapsible
+            collapsedSize={0}
+          >
             <Header />
           </ResizablePanel>
           <ResizableHandle />
@@ -163,21 +177,31 @@ function App() {
             <ResizablePanelGroup
               direction="horizontal"
               autoSaveId={"layout-center-save"}
-              className="bg-background text-primary-foreground"
+              className="bg-background text-foreground"
             >
-              <ResizablePanel className="h-full w-full !overflow-y-auto p-5 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-primary">
+              <ResizablePanel
+                className="h-full w-full !overflow-y-auto p-5 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-primary data-[panel-size='0.0']:hidden"
+                minSize={10}
+                defaultSize={20}
+                collapsible
+                collapsedSize={0}
+              >
                 <Left />
               </ResizablePanel>
               <ResizableHandle
-                className={`data-[resize-handle-state=inactive]:bg-transparent`}
+                className={`data-[resize-handle-state=inactive]:`}
               />
               <ResizablePanel className="!overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-primary">
                 <div className="flex flex-col items-start justify-start">
                   {boards?.map((b) => (
-                    <Board
-                      {...b}
-                      cards={cards?.filter((c) => c.board === b.id)}
-                    />
+                    <>
+                      <Board
+                        key={b.id + "-board-center"}
+                        {...b}
+                        cards={cards?.filter((c) => c.board === b.id)}
+                      />
+                      <Separator key={b.id + "-board-center-separator"} />
+                    </>
                   ))}
                 </div>
               </ResizablePanel>
@@ -247,7 +271,7 @@ const Header = () => {
                 {percentUsed}% used and {100 - Number(percentUsed)}% available
               </div>
               <em className="text-muted-foreground">
-                reload the page to refresh
+                last updated {new Date().toLocaleString("en-US")}
               </em>
             </TooltipContent>
           </Tooltip>
@@ -271,7 +295,7 @@ const Header = () => {
           Docs
         </a>
       </nav>
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-end px-10">
         <SettingsSheet />
       </div>
     </div>
@@ -279,6 +303,8 @@ const Header = () => {
 };
 
 const SettingsSheet = () => {
+  const { theme, setTheme } = useTheme();
+
   const copyLSToClipboard = () => {
     navigator.clipboard.writeText(JSON.stringify(localStorage));
     toast.success("Save data copied to clipboard");
@@ -399,6 +425,50 @@ const SettingsSheet = () => {
             >
               From save file
             </Button>
+            <div>Theme</div>
+            <Button
+              variant={"ghost"}
+              className="w-full justify-start"
+              onClick={() => setTheme("light")}
+              disabled={theme === "light"}
+            >
+              Light
+            </Button>
+            <Button
+              variant={"ghost"}
+              className="w-full justify-start"
+              onClick={() => setTheme("dark")}
+              disabled={theme === "dark"}
+            >
+              Dark
+            </Button>
+            <Button
+              variant={"ghost"}
+              className="w-full justify-start"
+              onClick={() => setTheme("system")}
+              disabled={theme === "system"}
+            >
+              Custom
+            </Button>
+            <div className="pt-24">
+              <div className="rounded-md border border-destructive bg-destructive/10 p-5 text-foreground">
+                <div className="pb-3 text-lg">Danger Zone</div>
+                <Button
+                  variant={"destructive"}
+                  className="w-full justify-start"
+                  onClick={() => {
+                    const confirmation = window.confirm(
+                      "Are you sure? This will permanently delete all your data!",
+                    );
+                    if (!confirmation) return;
+                    localStorage.clear();
+                    window.location.reload();
+                  }}
+                >
+                  Clear all data
+                </Button>
+              </div>
+            </div>
           </SheetDescription>
         </SheetHeader>
       </SheetContent>
@@ -426,7 +496,11 @@ const Left = () => {
           >
             Add board
           </Button>
-          <Button disabled className="w-full min-w-20 max-w-36">
+          <Button
+            variant={"outline"}
+            disabled
+            className="w-full min-w-20 max-w-36"
+          >
             Add view
           </Button>
         </div>
@@ -482,39 +556,73 @@ const CardsAccordion = () => {
               </SelectGroup>
             </SelectContent>
           </Select>
-          <div className="w-full">
+          <div className="flex w-full flex-col gap-1">
             {cards?.toSorted(sortCb).map((c) => (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger className="w-full">
-                    <Button
-                      variant={"ghost"}
-                      className="h-fit w-full flex-col items-start justify-center truncate"
-                    >
-                      <div className="flex gap-1">
-                        {c.title}{" "}
-                        {c.notes && <Pencil2Icon className="text-primary" />}
-                      </div>
-                      <em className="text-muted-foreground">{c.description}</em>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <div className="flex items-center justify-center gap-2">
-                      {c.notes && (
-                        <>
-                          <div>contains notes</div>
-                          <Checkbox checked />
-                        </>
-                      )}
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              // <TooltipProvider key={c.id + "-tooltip-card-left"}>
+              //   <Tooltip>
+              //     <TooltipTrigger className="w-full">
+              //       <Button
+              //         variant={"ghost"}
+              //         className="h-fit w-full flex-col items-start justify-center truncate"
+              //       >
+              //         <div className="flex gap-1">
+              //           {c.title}{" "}
+              //           {c.notes && <Pencil2Icon className="text-primary" />}
+              //         </div>
+              //         <em className="text-muted-foreground">{c.description}</em>
+              //       </Button>
+              //     </TooltipTrigger>
+              //     <TooltipContent>
+              //       <div className="flex items-center justify-center gap-2">
+              //         {c.notes && (
+              //           <>
+              //             <div>contains notes</div>
+              //             <Checkbox checked />
+              //           </>
+              //         )}
+              //       </div>
+              //     </TooltipContent>
+              //   </Tooltip>
+              // </TooltipProvider>
+              <CardNavItem key={`${c.id}-left-nav-button`} {...c} />
             ))}
           </div>
         </AccordionContent>
       </AccordionItem>
     </Accordion>
+  );
+};
+
+const CardNavItem = (props: Card) => {
+  const { title, description, notes } = props;
+  const [isHover, setIsHover] = useState(false);
+  return (
+    <TooltipProvider>
+      <div className="relative">
+        <div
+          onMouseOver={() => setIsHover(true)}
+          onMouseLeave={() => setIsHover(false)}
+        >
+          <a className="flex cursor-pointer items-center justify-start gap-1 hover:underline hover:underline-offset-2">
+            <FileTextIcon className={!!notes ? "text-primary" : ""} />
+            {title}
+          </a>
+          <CardTooltip
+            {...props}
+            isHover={isHover}
+            setIsHover={setIsHover}
+            triggerClassName="-right-28"
+            includeDefaultData
+            data={
+              <div className="pb-2">
+                <div className="text-foreground">{title}</div>
+                <div>{description}</div>
+              </div>
+            }
+          />
+        </div>
+      </div>
+    </TooltipProvider>
   );
 };
 

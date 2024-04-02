@@ -81,7 +81,7 @@ export const useCardStore = create<CardStore>()((set, get) => ({
     });
   },
   saveCards: (passedCards) => {
-    console.log("saving cards...");
+    // console.log("saving cards...");
     const { cards, nextAvailableId } = get();
     const newCards = passedCards ? passedCards : cards;
     localStorage.setItem(CARD_LS_KEY, JSON.stringify(newCards));

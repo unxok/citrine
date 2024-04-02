@@ -1,8 +1,12 @@
-import { BOARDS_LS_KEY, BOARDS_NEXT_ID_LS_KEY } from "@/lib/consts";
+import {
+  BOARDS_LS_KEY,
+  BOARDS_NEXT_ID_LS_KEY,
+  PROSE_CUSTOM,
+} from "@/lib/consts";
 import { UniqueIdentifier } from "@dnd-kit/core";
 import { toast } from "sonner";
 import { create } from "zustand";
-import { Card } from "../Card";
+import { Card, useCardStore } from "../Card";
 import { Lane, LaneDraggable } from "../Lane";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -24,6 +28,17 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Markdown from "markdown-to-jsx";
 import "github-markdown-css";
+import {
+  ContextMenu,
+  ContextMenuCheckboxItem,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+  ContextMenuTrigger,
+} from "../ui/context-menu";
 
 export type Board = {
   id: UniqueIdentifier;
@@ -34,17 +49,25 @@ export type Board = {
   showNotes?: boolean;
 };
 
-export const Board = ({
-  title,
-  lanes,
-  description,
-  cards,
-}: Board & { cards?: Card[] }) => {
+export const Board = (props: Board & { cards?: Card[] }) => {
+  const { title, lanes, description, cards, showNotes, notes } = props;
+  const { addBoard, saveBoards } = useBoardStore();
+  const [dialogEditOpen, setDialogEditOpen] = useState(false);
+  const [dialogViewOpen, setDialogViewOpen] = useState(false);
+  const updateShowNotes = (b: boolean) => {
+    // console.log("got b: ", b);
+    addBoard({
+      ...props,
+      showNotes: !b,
+    });
+    saveBoards();
+  };
+
   return (
-    <div
-      className={`flex h-fit w-full flex-col overflow-x-auto p-5 scrollbar scrollbar-track-transparent scrollbar-thumb-primary`}
-    >
-      <div className={`flex w-full flex-col justify-start pb-5`}>
+    <BoardContextMenuWrapper>
+      <BoardContextMenuTrigger
+        className={`flex h-fit w-full flex-col justify-start overflow-x-auto p-5 scrollbar scrollbar-track-transparent scrollbar-thumb-primary`}
+      >
         <div className="flex gap-2">
           <div className="text-nowrap text-xl font-bold tracking-widest">
             {title ?? "Unnamed Board"}
@@ -52,8 +75,13 @@ export const Board = ({
           <div className="text-muted-foreground">{cards?.length}</div>
         </div>
         <div className="text-muted-foreground">{description}</div>
-      </div>
-      <div className="relative flex w-full flex-row items-start justify-start gap-3">
+        {!!showNotes && (
+          <div className={PROSE_CUSTOM}>
+            <Markdown>{notes ?? ""}</Markdown>
+          </div>
+        )}
+      </BoardContextMenuTrigger>
+      <div className="relative flex w-full flex-row items-start justify-start gap-3 p-5">
         {lanes?.map((props) => (
           <LaneDraggable
             key={props.id}
@@ -62,7 +90,27 @@ export const Board = ({
           />
         )) ?? "no lanes yet"}
       </div>
-    </div>
+      {/* </div> */}
+      <BoardDialog
+        defaultMode="edit"
+        defaultData={props}
+        open={dialogEditOpen}
+        setOpen={(b) => setDialogEditOpen(b)}
+      />
+      <BoardDialog
+        defaultMode="view"
+        defaultData={props}
+        open={dialogViewOpen}
+        setOpen={(b) => setDialogViewOpen(b)}
+      />
+      <BoardContextMenuContent
+        showNotes={!!!showNotes}
+        setShowNotes={updateShowNotes}
+        setViewOpen={setDialogViewOpen}
+        setEditOpen={setDialogEditOpen}
+        board={props}
+      />
+    </BoardContextMenuWrapper>
   );
 };
 
@@ -72,6 +120,7 @@ type BoardStore = {
   setBoards: (callback: (boards?: Board[]) => Board[] | undefined) => void;
   addBoard: (board: Board) => void;
   saveBoards: (passedBoards?: Board[]) => void;
+  deleteBoard: (boardId: Board["id"]) => void;
 };
 
 const loadBoards: () => Board[] | undefined = () => {
@@ -124,11 +173,17 @@ export const useBoardStore = create<BoardStore>()((set, get) => ({
     });
   },
   saveBoards: (passedBoards) => {
-    console.log("saving boards...");
+    // console.log("saving boards...");
     const { boards, nextAvailableId } = get();
     const newCards = passedBoards ? passedBoards : boards;
     localStorage.setItem(BOARDS_LS_KEY, JSON.stringify(newCards));
     localStorage.setItem(BOARDS_NEXT_ID_LS_KEY, nextAvailableId.toString());
+  },
+  deleteBoard: (boardId) => {
+    set((state) => ({
+      ...state,
+      boards: state?.boards?.filter((b) => b.id !== boardId),
+    }));
   },
 }));
 
@@ -152,6 +207,7 @@ export const BoardDialog = ({
     description: defaultData?.description ?? "",
     notes: defaultData?.notes ?? "",
     showNotes: defaultData?.showNotes ?? false,
+    ...defaultData,
   };
   const [formValues, setFormValues] = useState<Board>(defaultFormState);
   const [mode, setMode] = useState(defaultMode);
@@ -287,7 +343,6 @@ export const BoardDialog = ({
             <CardView {...formValues} />
           )}
         </ScrollArea>
-
         <DialogFooter>
           {defaultData && (
             <DialogClose className={buttonVariants({ variant: "ghost" })}>
@@ -331,7 +386,12 @@ const MarkdownInput = ({
         </TabsList>
       </Tabs>
       {showPreview ? (
-        <div className="markdown-body whitespace-pre-wrap rounded-md border !bg-transparent p-5">
+        <div
+          className={
+            PROSE_CUSTOM +
+            " whitespace-pre-wrap rounded-md border !bg-transparent p-5"
+          }
+        >
           <Markdown>{formValue ?? ""}</Markdown>
         </div>
       ) : (
@@ -354,7 +414,7 @@ const MarkdownInput = ({
 };
 
 const CardView = ({ title, description, notes }: Card) => (
-  <div className="markdown-body whitespace-pre !bg-transparent">
+  <div className={PROSE_CUSTOM}>
     <h1>{title}</h1>
     <p>{description}</p>
     <div>
@@ -362,3 +422,118 @@ const CardView = ({ title, description, notes }: Card) => (
     </div>
   </div>
 );
+
+export const BoardContextMenuWrapper = ContextMenu;
+export const BoardContextMenuTrigger = ContextMenuTrigger;
+export const BoardContextMenuContent = ({
+  setViewOpen,
+  setEditOpen,
+  showNotes,
+  setShowNotes,
+  board,
+}: {
+  setViewOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setEditOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  showNotes: boolean;
+  setShowNotes: (b: boolean) => void;
+  board: Board;
+}) => {
+  const { deleteBoard, saveBoards, addBoard } = useBoardStore();
+  const { setCards, saveCards } = useCardStore();
+  return (
+    <ContextMenuContent>
+      <ContextMenuItem
+        onClick={() => {
+          setViewOpen(true);
+        }}
+      >
+        View
+      </ContextMenuItem>
+      <ContextMenuItem
+        onClick={() => {
+          setEditOpen(true);
+        }}
+      >
+        Edit
+      </ContextMenuItem>
+      <ContextMenuItem
+        onClick={() => {
+          // TODO this is a sketch temporary solution
+          // need to change lanes to using numbers to do this properly
+          const newLaneTitle = window.prompt(
+            "Please enter the name for the new lane",
+          );
+          if (!newLaneTitle) {
+            return toast.error("You must enter a non-empty name!");
+          }
+          if (board?.lanes?.some((l) => l.id === newLaneTitle)) {
+            return toast.error("Lane already exists!");
+          }
+          const newLane: Lane = {
+            id: newLaneTitle,
+            title: newLaneTitle,
+            board: board.id,
+          };
+          addBoard({
+            ...board,
+            lanes: board.lanes ? [...board.lanes, newLane] : [newLane],
+          });
+          saveBoards();
+        }}
+      >
+        Add lane
+      </ContextMenuItem>
+      <ContextMenuSub>
+        <ContextMenuSubTrigger>Delete lane</ContextMenuSubTrigger>
+        <ContextMenuSubContent>
+          {board?.lanes?.map((l) => (
+            <ContextMenuItem
+              key={`${l.id}-context-menu-delete-item`}
+              onClick={() => {
+                const confirmation = window.confirm(
+                  "Are you sure? This will permanently delete this lane AND all the cards within it!",
+                );
+                if (!confirmation) return;
+                setCards((cards) => {
+                  if (!cards) return [];
+                  return cards.filter(
+                    (c) => c.board !== l.board && c.lane !== l.id,
+                  );
+                });
+                addBoard({
+                  ...board,
+                  lanes: board?.lanes?.filter((lane) => lane.id !== l.id),
+                });
+                saveCards();
+                saveBoards();
+              }}
+            >
+              {l.title}
+            </ContextMenuItem>
+          ))}
+        </ContextMenuSubContent>
+      </ContextMenuSub>
+      <ContextMenuItem
+        onClick={() => {
+          // TODO make this do a dialog
+          const confirmation = window.confirm(
+            "Are you sure? You can't undo this!",
+          );
+          if (confirmation) {
+            deleteBoard(board.id);
+            saveBoards();
+          }
+        }}
+      >
+        Delete
+      </ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuCheckboxItem
+        checked={showNotes}
+        onCheckedChange={setShowNotes}
+      >
+        Hide notes
+      </ContextMenuCheckboxItem>
+    </ContextMenuContent>
+  );
+};

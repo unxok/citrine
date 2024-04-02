@@ -21,6 +21,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Markdown from "markdown-to-jsx";
 import "github-markdown-css";
+import { PROSE_CUSTOM } from "@/lib/consts";
 
 export const CardDialog = ({
   laneId,
@@ -48,6 +49,9 @@ export const CardDialog = ({
     description: defaultData?.description ?? "",
     notes: defaultData?.notes ?? "",
     showNotes: defaultData?.showNotes ?? false,
+    created: defaultData?.created ?? new Date().toLocaleString("en-US"),
+    modified: defaultData?.modified ?? new Date().toLocaleString("en-US"),
+    ...defaultData,
   };
   const [formValues, setFormValues] = useState<Card>(defaultFormState);
   const [mode, setMode] = useState(defaultMode);
@@ -227,7 +231,7 @@ const MarkdownInput = ({
         </TabsList>
       </Tabs>
       {showPreview ? (
-        <div className="markdown-body whitespace-pre-wrap rounded-md border !bg-transparent !text-primary-foreground p-5">
+        <div className={PROSE_CUSTOM}>
           <Markdown>{formValue ?? ""}</Markdown>
         </div>
       ) : (
@@ -239,7 +243,7 @@ const MarkdownInput = ({
           onChange={(e) =>
             updateFormValue(e.currentTarget.id, e.currentTarget.value)
           }
-          className="scrollbar scrollbar-corner-transparent scrollbar-thumb-secondary scrollbar-track-transparent"
+          className="scrollbar scrollbar-track-transparent scrollbar-thumb-secondary scrollbar-corner-transparent"
         />
       )}
       <span className="text-sm text-muted-foreground">
@@ -250,7 +254,7 @@ const MarkdownInput = ({
 };
 
 const CardView = ({ title, description, notes }: Card) => (
-  <div className="markdown-body whitespace-pre !bg-transparent !text-primary-foreground">
+  <div className={PROSE_CUSTOM}>
     <h1>{title}</h1>
     <p>{description}</p>
     <div>

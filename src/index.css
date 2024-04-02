@@ -4,7 +4,7 @@
 
 @layer base {
   html {
-    @apply text-foreground;
+    @apply text-primary-foreground;
   }
 
   :root {

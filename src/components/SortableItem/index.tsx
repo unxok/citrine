@@ -1,3 +1,4 @@
+import { UniqueIdentifier } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ReactNode } from "react";
@@ -9,6 +10,7 @@ export function SortableItem({
   disabled,
   itemType,
   asChild,
+  boardId,
   ...props
 }: {
   id: string | number;
@@ -17,36 +19,19 @@ export function SortableItem({
   disabled?: boolean;
   itemType: string;
   asChild?: boolean;
+  boardId?: UniqueIdentifier;
+  laneId?: UniqueIdentifier;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({
       id: id,
       data: {
         itemType: itemType,
+        boardId: boardId,
       },
     });
-
-  //   const [position, setPosition] = useState({
-  //     x: 0,
-  //     y: 0,
-  //     scaleX: 1,
-  //     scaleY: 1,
-  //   });
-
-  //   useEffect(() => {
-  //     console.log(transform);
-  //     if (!transform) return;
-  //     setPosition((prev) => {
-  //       const newX = transform.x;
-  //       const newY = transform.y;
-  //       if (newX === prev.x && newY === prev.y) {
-  //         return prev;
-  //       }
-  //       return { ...prev, x: newX, y: newY };
-  //     });
-  //   }, [transform]);
-
-  //   useEffect(() => console.log("transform: ", transform), [transform]);
 
   const style = disabled
     ? {}
@@ -59,7 +44,7 @@ export function SortableItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={className}
+      className={className + " touch-none"}
       {...attributes}
       {...listeners}
       {...props}

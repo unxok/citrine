@@ -7,17 +7,19 @@ export const Droppable = ({
   className,
   disabled,
   itemType,
+  boardId,
 }: {
   id: UniqueIdentifier;
   children?: ReactNode;
   className?: string;
   disabled: boolean;
   itemType: string;
+  boardId?: UniqueIdentifier;
 }) => {
   const { setNodeRef } = useDroppable({
     id: id,
     disabled: disabled,
-    data: { itemType: itemType },
+    data: { itemType: itemType, boardId: boardId },
   });
 
   return (
