@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import "./App.css";
 import { Toaster } from "./components/ui/sonner";
 import { ThemeProvider, useTheme } from "./components/ThemeProvider";
@@ -13,7 +13,6 @@ import {
   DragOverEvent,
   DragOverlay,
   Over,
-  UniqueIdentifier,
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { useCardStore, Card, CardPresentational } from "./components/Card";
@@ -64,8 +63,7 @@ import { toast } from "sonner";
 import { cn, downloadToFile } from "./lib/utils";
 import { CardTooltip } from "./components/Card/CardDraggable";
 import { useViewStore } from "./components/View";
-import { ALL, BOARD, CARD, PROSE_CUSTOM } from "./lib/consts";
-import Markdown from "markdown-to-jsx";
+import { ALL, BOARD, CARD } from "./lib/consts";
 import { CardView } from "./components/Card/CardDialog";
 
 function App() {
@@ -202,7 +200,7 @@ function App() {
               className="bg-background text-foreground"
             >
               <ResizablePanel
-                className="h-full w-full !overflow-y-auto p-5 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-primary data-[panel-size='0.0']:hidden"
+                className="h-full w-full !overflow-y-auto text-nowrap p-5 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-primary data-[panel-size='0.0']:hidden"
                 minSize={10}
                 defaultSize={20}
                 collapsible
@@ -213,7 +211,7 @@ function App() {
               <ResizableHandle
                 className={`data-[resize-handle-state=inactive]:`}
               />
-              <ResizablePanel className="">
+              <ResizablePanel className="relative">
                 <div className="flex h-full w-full flex-col items-start justify-start gap-5 !overflow-auto p-10 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-primary">
                   {currentView.itemId === ALL &&
                     currentView.itemType === BOARD &&
@@ -693,26 +691,46 @@ const BoardsAccordion = () => {
 
 const BoardNavItem = (props: Board & { className?: string }) => {
   const { id, title, description, notes, className } = props;
+  const { cards } = useCardStore();
   const { setView } = useViewStore();
   const [isHover, setIsHover] = useState(false);
   return (
     <TooltipProvider>
       <div className="relative">
         <div
-          onMouseOver={() => setIsHover(true)}
-          onMouseLeave={() => setIsHover(false)}
           onClick={() => {
             setView({ itemId: id, itemType: BOARD });
           }}
         >
           <a
             className={cn(
-              `flex cursor-pointer items-center justify-start gap-1 rounded-sm p-2 hover:bg-secondary hover:text-secondary-foreground hover:underline hover:underline-offset-2`,
-              className,
+              `flex cursor-pointer flex-col items-start justify-center gap-1`,
             )}
           >
-            <FileTextIcon className={!!notes ? "text-primary" : ""} />
-            {title}
+            <div
+              className={cn(
+                "roudned-sm flex w-full items-center justify-start gap-1 rounded-sm p-2",
+              )}
+            >
+              <CardsAccordion
+                cards={cards?.filter((c) => c.board === id)}
+                triggerClassName={className}
+                trigger={
+                  <div className="flex items-center gap-1">
+                    <FileTextIcon className={!!notes ? "text-primary" : ""} />
+                    <span
+                      onMouseOver={() => setIsHover(true)}
+                      onMouseLeave={() => setIsHover(false)}
+                    >
+                      {title}
+                    </span>
+                  </div>
+                }
+              />
+            </div>
+            {/* <div className="w-full pl-5">
+              <CardsAccordion cards={cards?.filter((c) => c.board === id)} />
+            </div> */}
           </a>
           <BoardTooltip
             {...props}
@@ -733,8 +751,12 @@ const BoardNavItem = (props: Board & { className?: string }) => {
   );
 };
 
-const CardsAccordion = () => {
-  const { cards } = useCardStore();
+const CardsAccordion = (props: {
+  cards?: Card[];
+  trigger?: ReactNode;
+  triggerClassName?: string;
+}) => {
+  const cards = props.cards ?? useCardStore().cards;
   const { currentView, setView } = useViewStore();
   const [sortCb, setSortCb] = useState<SortCallback>(() => sortAZ);
   const [sortType, setSortType] = useState("sortAZ");
@@ -760,8 +782,12 @@ const CardsAccordion = () => {
       className="w-full"
     >
       <AccordionItem value="item-1">
-        <AccordionTrigger className="w-full">Cards</AccordionTrigger>
-        <AccordionContent className="w-full p-1">
+        <AccordionTrigger
+          className={cn("w-full rounded-sm p-2", props.triggerClassName)}
+        >
+          {props.trigger ?? "Cards"}
+        </AccordionTrigger>
+        <AccordionContent className={"w-full p-1"}>
           <Select value={sortType} onValueChange={(v) => setSortType(v)}>
             <SelectTrigger className="mb-1 w-fit gap-1 border-none">
               <div className="text-muted-foreground">Sort by</div>
@@ -828,11 +854,17 @@ const CardNavItem = (props: Card & { className?: string }) => {
         <div
           onMouseOver={() => setIsHover(true)}
           onMouseLeave={() => setIsHover(false)}
-          onClick={() => {
+          onClick={(e) => {
+            // setTimeout(() => {
             setView({ itemId: id, itemType: CARD });
+            e.stopPropagation();
+            // }, 0);
           }}
         >
           <a
+            onClick={() => {
+              setView({ itemId: id, itemType: CARD });
+            }}
             className={cn(
               `flex cursor-pointer items-center justify-start gap-1 rounded-sm p-2 hover:bg-secondary hover:text-secondary-foreground hover:underline hover:underline-offset-2`,
               className,

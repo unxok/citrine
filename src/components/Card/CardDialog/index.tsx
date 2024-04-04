@@ -1,4 +1,4 @@
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   DialogHeader,
   DialogFooter,
@@ -23,6 +23,8 @@ import Markdown from "markdown-to-jsx";
 import "github-markdown-css";
 import { PROSE_CUSTOM } from "@/lib/consts";
 import { cn } from "@/lib/utils";
+import { useDebounce } from "@/hooks/useDebounce";
+import { Pencil2Icon } from "@radix-ui/react-icons";
 
 export const CardDialog = ({
   laneId,
@@ -75,7 +77,7 @@ export const CardDialog = ({
     }
     addCard(formValues);
     saveCards();
-    setFormValues(defaultFormState);
+    // setFormValues(defaultFormState);
   };
 
   return (
@@ -83,6 +85,8 @@ export const CardDialog = ({
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent
         onPointerDownOutside={() => setFormValues(defaultFormState)}
+        onEscapeKeyDown={() => setFormValues(defaultFormState)}
+        onInteractOutside={() => setFormValues(defaultFormState)}
         className="h-5/6"
       >
         <DialogHeader>
@@ -233,12 +237,93 @@ const MarkdownInput = ({
   );
 };
 
-export const CardView = ({ title, description, notes }: Card) => (
-  <div className={cn(PROSE_CUSTOM, "h-full w-full")}>
-    <h1>{title}</h1>
-    <p>{description}</p>
-    <div>
-      <Markdown>{notes ?? ""}</Markdown>
+export const CardView = (props: Card) => {
+  const { title, description, notes, created, modified, lane, board } = props;
+  const [dialogEditOpen, setDialogEditOpen] = useState(false);
+  const { addCard, saveCards } = useCardStore();
+  const [mode, setMode] = useState<"view" | "edit">("view");
+  const [noteState, setNoteState] = useState(notes);
+  const [height, setHeight] = useState(-1);
+
+  const handleNoteStateUpdate = useDebounce((newNotes) => {
+    addCard({
+      ...props,
+      modified: new Date().toLocaleString("en-US"),
+      notes: newNotes,
+    });
+    saveCards();
+  }, 1000);
+
+  // useEffect(() => {
+  //   handleNoteStateUpdate(noteState);
+  // }, [noteState]);
+
+  return (
+    <div className={cn(PROSE_CUSTOM, "h-full w-full")}>
+      <div className="absolute right-0 top-10">
+        <div className="px-5">
+          <Button variant={"ghost"}>
+            <Pencil2Icon width={20} height={20} />
+          </Button>
+        </div>
+      </div>
+      <h1>{title}</h1>
+      <p>{description}</p>
+      <div>
+        <em className="text-muted-foreground">Created on: {created}</em>
+      </div>
+      <div>
+        <em className="text-muted-foreground">Last modified: {modified}</em>
+      </div>
+      <Tabs
+        className="pb-3 pt-5"
+        value={mode}
+        onValueChange={(s) => setMode(s as "edit" | "view")}
+      >
+        <TabsList>
+          <TabsTrigger value="edit">Edit</TabsTrigger>
+          <TabsTrigger value="view">Preview</TabsTrigger>
+        </TabsList>
+      </Tabs>
+      {mode === "view" && (
+        <div>
+          <Markdown>{notes ?? ""}</Markdown>
+        </div>
+      )}
+      {mode === "edit" && (
+        <div
+          className="h-full w-full p-2"
+          // contentEditable
+          // suppressContentEditableWarning
+          // onBlur={(e) => {
+          //   console.log(e.currentTarget.textContent);
+          //   setNoteState(e.currentTarget.textContent ?? "");
+          //   // const newHeight = e.currentTarget.scrollHeight;
+          //   // setHeight(newHeight);
+          // }}
+        >
+          <Textarea
+            className="h-auto w-full"
+            style={{
+              height: height === -1 ? "auto" : height + "px",
+            }}
+            value={noteState}
+            onChange={(e) => {
+              setNoteState(e.currentTarget.value);
+              handleNoteStateUpdate(e.currentTarget.value);
+              const newHeight = e.currentTarget.scrollHeight;
+              setHeight(newHeight);
+            }}
+          />
+        </div>
+      )}
+      <CardDialog
+        laneId={lane ?? ""}
+        boardId={board ?? ""}
+        defaultData={{ ...props }}
+        open={dialogEditOpen}
+        setOpen={setDialogEditOpen}
+      />
     </div>
-  </div>
-);
+  );
+};

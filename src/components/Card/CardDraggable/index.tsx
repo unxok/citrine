@@ -29,7 +29,6 @@ export const CardDraggable = (props: Card) => {
   const [isHover, setIsHover] = useState(false);
 
   const { activeCard, addCard, saveCards } = useCardStore();
-  const { setView } = useViewStore();
   const [dialogEditOpen, setDialogEditOpen] = useState(false);
   const updateShowNotes = (b: boolean) => {
     // console.log("got b: ", b);
