@@ -13,6 +13,7 @@ import {
   DragOverEvent,
   DragOverlay,
   Over,
+  UniqueIdentifier,
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { useCardStore, Card, CardPresentational } from "./components/Card";
@@ -21,7 +22,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "./components/ui/resizable";
-import { FileTextIcon, GearIcon } from "@radix-ui/react-icons";
+import { DashboardIcon, FileTextIcon, GearIcon } from "@radix-ui/react-icons";
 import { Button } from "./components/ui/button";
 import {
   Select,
@@ -45,7 +46,12 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "./components/ui/accordion";
-import { Board, BoardDialog, useBoardStore } from "./components/Board";
+import {
+  Board,
+  BoardDialog,
+  BoardTooltip,
+  useBoardStore,
+} from "./components/Board";
 import {
   Sheet,
   SheetContent,
@@ -55,9 +61,12 @@ import {
   SheetTrigger,
 } from "./components/ui/sheet";
 import { toast } from "sonner";
-import { downloadToFile } from "./lib/utils";
+import { cn, downloadToFile } from "./lib/utils";
 import { CardTooltip } from "./components/Card/CardDraggable";
-import { Separator } from "./components/ui/separator";
+import { useViewStore } from "./components/View";
+import { ALL, BOARD, CARD, PROSE_CUSTOM } from "./lib/consts";
+import Markdown from "markdown-to-jsx";
+import { CardView } from "./components/Card/CardDialog";
 
 function App() {
   const { cards, setCards, saveCards, activeCard, setActiveCardId } =
@@ -69,7 +78,20 @@ function App() {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
-
+  const { currentView } = useViewStore();
+  const getCurrentBoard = () => {
+    if (currentView.itemType !== BOARD) return;
+    const foundBoard = boards?.find((b) => b.id === currentView.itemId);
+    return foundBoard;
+  };
+  const getCurrentCard = () => {
+    if (currentView.itemType !== CARD) return;
+    const foundCard = cards?.find((b) => b.id === currentView.itemId);
+    return foundCard;
+  };
+  const currentBoard = getCurrentBoard();
+  const currentCard = getCurrentCard();
+  console.log("view: ", currentView);
   // useEffect(() => console.log(cards), [cards]);
 
   // useEffect(() => {
@@ -191,30 +213,33 @@ function App() {
               <ResizableHandle
                 className={`data-[resize-handle-state=inactive]:`}
               />
-              <ResizablePanel className="!overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-primary">
-                <div className="flex flex-col items-start justify-start">
-                  {boards?.map((b) => (
-                    <>
+              <ResizablePanel className="">
+                <div className="flex h-full w-full flex-col items-start justify-start gap-5 !overflow-auto p-10 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-primary">
+                  {currentView.itemId === ALL &&
+                    currentView.itemType === BOARD &&
+                    boards?.map((b) => (
                       <Board
                         key={b.id + "-board-center"}
                         {...b}
                         cards={cards?.filter((c) => c.board === b.id)}
                       />
-                      <Separator key={b.id + "-board-center-separator"} />
-                    </>
-                  ))}
+                    ))}
+                  {currentView.itemId === ALL &&
+                    currentView.itemType === CARD &&
+                    cards?.map((c) => (
+                      <CardView key={c.id + "-card-center"} {...c} />
+                    ))}
+                  {currentView.itemType === BOARD && currentBoard && (
+                    <Board
+                      {...currentBoard}
+                      cards={cards?.filter((c) => c.board === currentBoard.id)}
+                    />
+                  )}
+                  {currentView.itemType === CARD && currentCard && (
+                    <CardView {...currentCard} />
+                  )}
                 </div>
               </ResizablePanel>
-              {/* <Board
-                id={1}
-                title={"Test Board"}
-                lanes={[
-                  { id: "lane1", title: "BACKLOG", board: 1 },
-                  { id: "lane2", title: "TODAY", board: 1 },
-                  { id: "lane3", title: "DONE", board: 1 },
-                ]}
-                cards={cards?.filter((c) => c.board === 1)}
-              /> */}
             </ResizablePanelGroup>
           </ResizablePanel>
         </ResizablePanelGroup>
@@ -304,8 +329,8 @@ const Header = () => {
 
 const SettingsSheet = () => {
   const { theme, setTheme } = useTheme();
-  const {cards} = useCardStore();
-  const {boards} = useBoardStore();
+  const { cards } = useCardStore();
+  const { boards } = useBoardStore();
 
   const copyLSToClipboard = () => {
     navigator.clipboard.writeText(JSON.stringify(localStorage));
@@ -384,23 +409,46 @@ const SettingsSheet = () => {
 
   const exportToCSV = (delim: string) => {
     if (!cards || !boards) {
-      return toast.error('There are no cards to export!')
+      return toast.error("There are no cards to export!");
     }
-    const header = ['Id', 'Title', 'Description', 'Board', 'Lane', 'Notes', 'Created', 'Modified'].join(delim) + '\n';
-    const csv = header + cards.reduce((acc, card) => {
-      const boardTitle = boards.find(b => b.id === card.board)?.title;
-      const laneTitle = boards.find(b => b.id === card.board)?.lanes?.find(l => l.id === card.lane)?.title;
-      const arr = [`${card.id}`, `"${card?.title}"`, `"${card?.description}"`, `"${boardTitle}"`, `"${laneTitle}"`, `"${card?.notes}"`, `"${card?.created}"`, `"${card?.modified}"`]
-      const row = arr.join(delim);
-      return acc + '\n' + row;
-    }, '')
-    downloadToFile(csv, 'citrine.csv', 'text/csv');
-  }
+    const header =
+      [
+        "Id",
+        "Title",
+        "Description",
+        "Board",
+        "Lane",
+        "Notes",
+        "Created",
+        "Modified",
+      ].join(delim) + "\n";
+    const csv =
+      header +
+      cards.reduce((acc, card) => {
+        const boardTitle = boards.find((b) => b.id === card.board)?.title;
+        const laneTitle = boards
+          .find((b) => b.id === card.board)
+          ?.lanes?.find((l) => l.id === card.lane)?.title;
+        const arr = [
+          `${card.id}`,
+          `"${card?.title}"`,
+          `"${card?.description}"`,
+          `"${boardTitle}"`,
+          `"${laneTitle}"`,
+          `"${card?.notes}"`,
+          `"${card?.created}"`,
+          `"${card?.modified}"`,
+        ];
+        const row = arr.join(delim);
+        return acc + "\n" + row;
+      }, "");
+    downloadToFile(csv, "citrine.csv", "text/csv");
+  };
 
   const exportToHTML = () => {
     const html = document.documentElement.innerHTML;
-    downloadToFile(html, 'citrine.html', 'text/html');
-  }
+    downloadToFile(html, "citrine.html", "text/html");
+  };
 
   return (
     <Sheet>
@@ -436,9 +484,11 @@ const SettingsSheet = () => {
               variant={"ghost"}
               className="w-full justify-start"
               onClick={() => {
-                const delim = window.prompt('Please enter what will be the delimeter for your columns');
+                const delim = window.prompt(
+                  "Please enter what will be the delimeter for your columns",
+                );
                 if (!delim) {
-                  return toast.error('You must enter a non-empty character')
+                  return toast.error("You must enter a non-empty character");
                 }
                 exportToCSV(delim);
               }}
@@ -548,19 +598,16 @@ const Left = () => {
             Add view
           </Button>
         </div>
+        <BoardsAccordion />
         <CardsAccordion />
       </div>
-      <BoardDialog
-        open={boardDialogOpen}
-        setOpen={setBoardDialogOpen}
-        defaultMode="edit"
-      />
+      <BoardDialog open={boardDialogOpen} setOpen={setBoardDialogOpen} />
     </>
   );
 };
-
-const CardsAccordion = () => {
-  const { cards } = useCardStore();
+const BoardsAccordion = () => {
+  const { boards } = useBoardStore();
+  const { currentView, setView } = useViewStore();
   const [sortCb, setSortCb] = useState<SortCallback>(() => sortAZ);
   const [sortType, setSortType] = useState("sortAZ");
 
@@ -578,7 +625,140 @@ const CardsAccordion = () => {
   }, [sortType]);
 
   return (
-    <Accordion type="single" collapsible className="w-full">
+    <Accordion
+      type="single"
+      collapsible
+      defaultValue={currentView.itemType === BOARD ? "item-1" : undefined}
+      className="w-full"
+    >
+      <AccordionItem value="item-1">
+        <AccordionTrigger className="w-full">Boards</AccordionTrigger>
+        <AccordionContent className="w-full p-1">
+          <Select value={sortType} onValueChange={(v) => setSortType(v)}>
+            <SelectTrigger className="mb-1 w-fit gap-1 border-none">
+              <div className="text-muted-foreground">Sort by</div>
+              <SelectValue></SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>Title</SelectLabel>
+                <SelectItem value={"sortAZ"}>A to Z</SelectItem>
+                <SelectItem value={"sortZA"}>Z to A</SelectItem>
+              </SelectGroup>
+              <SelectGroup>
+                <SelectLabel>Creation</SelectLabel>
+                <SelectItem value={"sortNewest"}>Newest first</SelectItem>
+                <SelectItem value={"sortOldest"}>Oldest first</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          <div className="flex w-full flex-col gap-1">
+            <div
+              onClick={() => {
+                setView({ itemId: ALL, itemType: BOARD });
+              }}
+            >
+              <a
+                className={cn(
+                  "flex cursor-pointer items-center justify-start gap-1 rounded-sm p-2 hover:bg-secondary hover:text-secondary-foreground hover:underline hover:underline-offset-2",
+                  currentView.itemType === BOARD && currentView.itemId === ALL
+                    ? "bg-secondary text-secondary-foreground"
+                    : "",
+                )}
+              >
+                <DashboardIcon />
+                All boards
+              </a>
+            </div>
+            {boards
+              ?.toSorted(sortCb)
+              .map((b) => (
+                <BoardNavItem
+                  key={`${b.id}-board-left-nav-button`}
+                  {...b}
+                  className={
+                    currentView.itemType === BOARD &&
+                    currentView.itemId === b.id
+                      ? "bg-secondary text-secondary-foreground"
+                      : ""
+                  }
+                />
+              ))}
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
+  );
+};
+
+const BoardNavItem = (props: Board & { className?: string }) => {
+  const { id, title, description, notes, className } = props;
+  const { setView } = useViewStore();
+  const [isHover, setIsHover] = useState(false);
+  return (
+    <TooltipProvider>
+      <div className="relative">
+        <div
+          onMouseOver={() => setIsHover(true)}
+          onMouseLeave={() => setIsHover(false)}
+          onClick={() => {
+            setView({ itemId: id, itemType: BOARD });
+          }}
+        >
+          <a
+            className={cn(
+              `flex cursor-pointer items-center justify-start gap-1 rounded-sm p-2 hover:bg-secondary hover:text-secondary-foreground hover:underline hover:underline-offset-2`,
+              className,
+            )}
+          >
+            <FileTextIcon className={!!notes ? "text-primary" : ""} />
+            {title}
+          </a>
+          <BoardTooltip
+            {...props}
+            isHover={isHover}
+            setIsHover={setIsHover}
+            triggerClassName="-right-28"
+            includeDefaultData
+            data={
+              <div className="pb-2">
+                <div className="text-foreground">{title}</div>
+                <div>{description}</div>
+              </div>
+            }
+          />
+        </div>
+      </div>
+    </TooltipProvider>
+  );
+};
+
+const CardsAccordion = () => {
+  const { cards } = useCardStore();
+  const { currentView, setView } = useViewStore();
+  const [sortCb, setSortCb] = useState<SortCallback>(() => sortAZ);
+  const [sortType, setSortType] = useState("sortAZ");
+
+  useEffect(() => {
+    switch (sortType) {
+      case "sortAZ":
+        return setSortCb(() => sortAZ);
+      case "sortZA":
+        return setSortCb(() => sortZA);
+      case "sortNewest":
+        return setSortCb(() => sortNewest);
+      case "sortOldest":
+        return setSortCb(() => sortOldest);
+    }
+  }, [sortType]);
+
+  return (
+    <Accordion
+      defaultValue={currentView.itemType === CARD ? "item-1" : undefined}
+      type="single"
+      collapsible
+      className="w-full"
+    >
       <AccordionItem value="item-1">
         <AccordionTrigger className="w-full">Cards</AccordionTrigger>
         <AccordionContent className="w-full p-1">
@@ -601,35 +781,36 @@ const CardsAccordion = () => {
             </SelectContent>
           </Select>
           <div className="flex w-full flex-col gap-1">
-            {cards?.toSorted(sortCb).map((c) => (
-              // <TooltipProvider key={c.id + "-tooltip-card-left"}>
-              //   <Tooltip>
-              //     <TooltipTrigger className="w-full">
-              //       <Button
-              //         variant={"ghost"}
-              //         className="h-fit w-full flex-col items-start justify-center truncate"
-              //       >
-              //         <div className="flex gap-1">
-              //           {c.title}{" "}
-              //           {c.notes && <Pencil2Icon className="text-primary" />}
-              //         </div>
-              //         <em className="text-muted-foreground">{c.description}</em>
-              //       </Button>
-              //     </TooltipTrigger>
-              //     <TooltipContent>
-              //       <div className="flex items-center justify-center gap-2">
-              //         {c.notes && (
-              //           <>
-              //             <div>contains notes</div>
-              //             <Checkbox checked />
-              //           </>
-              //         )}
-              //       </div>
-              //     </TooltipContent>
-              //   </Tooltip>
-              // </TooltipProvider>
-              <CardNavItem key={`${c.id}-left-nav-button`} {...c} />
-            ))}
+            <div
+              onClick={() => {
+                setView({ itemId: ALL, itemType: BOARD });
+              }}
+            >
+              <a
+                className={cn(
+                  "flex cursor-pointer items-center justify-start gap-1 rounded-sm p-2 hover:bg-secondary hover:text-secondary-foreground hover:underline hover:underline-offset-2",
+                  currentView.itemType === CARD && currentView.itemId === ALL
+                    ? "bg-secondary text-secondary-foreground"
+                    : "",
+                )}
+              >
+                <DashboardIcon />
+                All cards
+              </a>
+            </div>
+            {cards
+              ?.toSorted(sortCb)
+              .map((c) => (
+                <CardNavItem
+                  key={`${c.id}-card-left-nav-button`}
+                  {...c}
+                  className={
+                    currentView.itemType === CARD && currentView.itemId === c.id
+                      ? "bg-secondary text-secondary-foreground"
+                      : ""
+                  }
+                />
+              ))}
           </div>
         </AccordionContent>
       </AccordionItem>
@@ -637,8 +818,9 @@ const CardsAccordion = () => {
   );
 };
 
-const CardNavItem = (props: Card) => {
-  const { title, description, notes } = props;
+const CardNavItem = (props: Card & { className?: string }) => {
+  const { id, title, description, notes, className } = props;
+  const { setView } = useViewStore();
   const [isHover, setIsHover] = useState(false);
   return (
     <TooltipProvider>
@@ -646,8 +828,16 @@ const CardNavItem = (props: Card) => {
         <div
           onMouseOver={() => setIsHover(true)}
           onMouseLeave={() => setIsHover(false)}
+          onClick={() => {
+            setView({ itemId: id, itemType: CARD });
+          }}
         >
-          <a className="flex cursor-pointer items-center justify-start gap-1 hover:underline hover:underline-offset-2">
+          <a
+            className={cn(
+              `flex cursor-pointer items-center justify-start gap-1 rounded-sm p-2 hover:bg-secondary hover:text-secondary-foreground hover:underline hover:underline-offset-2`,
+              className,
+            )}
+          >
             <FileTextIcon className={!!notes ? "text-primary" : ""} />
             {title}
           </a>
@@ -669,84 +859,3 @@ const CardNavItem = (props: Card) => {
     </TooltipProvider>
   );
 };
-
-// const BoardsAccordion = () => {
-//   const { cards } = useCardStore();
-//   const [sortCb, setSortCb] = useState<SortCallback>(() => sortAZ);
-//   const [sortType, setSortType] = useState("sortAZ");
-
-//   useEffect(() => {
-//     switch (sortType) {
-//       case "sortAZ":
-//         return setSortCb(() => sortAZ);
-//       case "sortZA":
-//         return setSortCb(() => sortZA);
-//       case "sortNewest":
-//         return setSortCb(() => sortNewest);
-//       case "sortOldest":
-//         return setSortCb(() => sortOldest);
-//     }
-//   }, [sortType]);
-
-//   return (
-//     <Accordion type="single" collapsible className="w-full">
-//       <AccordionItem value="item-1">
-//         <AccordionTrigger className="w-full">Cards</AccordionTrigger>
-//         <AccordionContent className="w-full p-1">
-//           <Select value={sortType} onValueChange={(v) => setSortType(v)}>
-//             <SelectTrigger className="w-fit gap-1 border-none">
-//               <div className="text-muted-foreground">Sort by</div>
-//               <SelectValue></SelectValue>
-//             </SelectTrigger>
-//             <SelectContent>
-//               <SelectGroup>
-//                 <SelectLabel>Title</SelectLabel>
-//                 <SelectItem value={"sortAZ"}>A to Z</SelectItem>
-//                 <SelectItem value={"sortZA"}>Z to A</SelectItem>
-//               </SelectGroup>
-//               <SelectGroup>
-//                 <SelectLabel>Creation</SelectLabel>
-//                 <SelectItem value={"sortNewest"}>Newest first</SelectItem>
-//                 <SelectItem value={"sortOldest"}>Oldest first</SelectItem>
-//               </SelectGroup>
-//             </SelectContent>
-//           </Select>
-//           <div className="w-full">
-//             {cards?.toSorted(sortCb).map((c) => (
-//               <TooltipProvider>
-//                 <Tooltip>
-//                   <TooltipTrigger className="w-full">
-//                     <Button
-//                       variant={"ghost"}
-//                       className="h-fit w-full flex-col items-start justify-center truncate"
-//                     >
-//                       <div className="flex gap-1">
-//                         {c.title}{" "}
-//                         {c.notes && <Pencil2Icon className="text-primary" />}
-//                       </div>
-//                       <em className="text-muted-foreground">{c.description}</em>
-//                     </Button>
-//                   </TooltipTrigger>
-//                   <TooltipContent>
-//                     <div className="flex items-center justify-center gap-2">
-//                       {c.notes && (
-//                         <>
-//                           <div>contains notes</div>
-//                           <Checkbox checked />
-//                         </>
-//                       )}
-//                     </div>
-//                   </TooltipContent>
-//                 </Tooltip>
-//               </TooltipProvider>
-//             ))}
-//           </div>
-//         </AccordionContent>
-//       </AccordionItem>
-//     </Accordion>
-//   );
-// };
-
-// const CenterMiddle = () => {
-
-// }

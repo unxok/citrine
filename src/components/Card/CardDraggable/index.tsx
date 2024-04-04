@@ -16,6 +16,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useViewStore } from "@/components/View";
+import { CARD } from "@/lib/consts";
 
 export const CardDraggable = (props: Card) => {
   const { id, board, lane, showNotes } = props;
@@ -26,8 +29,8 @@ export const CardDraggable = (props: Card) => {
   const [isHover, setIsHover] = useState(false);
 
   const { activeCard, addCard, saveCards } = useCardStore();
+  const { setView } = useViewStore();
   const [dialogEditOpen, setDialogEditOpen] = useState(false);
-  const [dialogViewOpen, setDialogViewOpen] = useState(false);
   const updateShowNotes = (b: boolean) => {
     // console.log("got b: ", b);
     addCard({
@@ -71,7 +74,6 @@ export const CardDraggable = (props: Card) => {
         <CardContextMenuContent
           showNotes={!!!showNotes}
           setShowNotes={updateShowNotes}
-          setViewOpen={setDialogViewOpen}
           setEditOpen={setDialogEditOpen}
           cardId={props.id}
         />
@@ -82,15 +84,6 @@ export const CardDraggable = (props: Card) => {
         defaultData={{ ...props }}
         open={dialogEditOpen}
         setOpen={setDialogEditOpen}
-        defaultMode={"edit"}
-      />
-      <CardDialog
-        laneId={lane}
-        boardId={board}
-        defaultData={{ ...props }}
-        open={dialogViewOpen}
-        setOpen={setDialogViewOpen}
-        defaultMode={"view"}
       />
     </TooltipProvider>
   );
@@ -130,7 +123,9 @@ export const CardTooltip = ({
             <div>Id: {id}</div>
             <div>Lane: {lane}</div>
             <div>Board: {board}</div>
-            <div>Has notes: {String(!!notes)}</div>
+            <div className="flex items-center justify-start gap-2">
+              Notes: <Checkbox checked={!!notes} />
+            </div>
             <div>Created: {created}</div>
             <div>Modified: {modified}</div>
           </>
@@ -143,24 +138,23 @@ export const CardTooltip = ({
 export const CardContextMenuWrapper = ContextMenu;
 export const CardContextMenuTrigger = ContextMenuTrigger;
 export const CardContextMenuContent = ({
-  setViewOpen,
   setEditOpen,
   showNotes,
   setShowNotes,
   cardId,
 }: {
-  setViewOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setEditOpen: React.Dispatch<React.SetStateAction<boolean>>;
   showNotes: boolean;
   setShowNotes: (b: boolean) => void;
   cardId: Card["id"];
 }) => {
   const { deleteCard, saveCards } = useCardStore();
+  const { setView } = useViewStore();
   return (
     <ContextMenuContent>
       <ContextMenuItem
         onClick={() => {
-          setViewOpen(true);
+          setView({ itemId: cardId, itemType: CARD });
         }}
       >
         View

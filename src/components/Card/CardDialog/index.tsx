@@ -22,6 +22,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Markdown from "markdown-to-jsx";
 import "github-markdown-css";
 import { PROSE_CUSTOM } from "@/lib/consts";
+import { cn } from "@/lib/utils";
 
 export const CardDialog = ({
   laneId,
@@ -30,7 +31,6 @@ export const CardDialog = ({
   defaultData,
   open,
   setOpen,
-  defaultMode,
 }: {
   laneId: UniqueIdentifier;
   boardId: UniqueIdentifier;
@@ -38,7 +38,6 @@ export const CardDialog = ({
   defaultData?: Card;
   open?: boolean;
   setOpen?: (b: boolean) => void;
-  defaultMode: "edit" | "view";
 }) => {
   const { addCard, saveCards } = useCardStore();
   const defaultFormState = {
@@ -54,7 +53,6 @@ export const CardDialog = ({
     ...defaultData,
   };
   const [formValues, setFormValues] = useState<Card>(defaultFormState);
-  const [mode, setMode] = useState(defaultMode);
 
   // useEffect(() => console.log(formValues), [formValues]);
 
@@ -64,6 +62,8 @@ export const CardDialog = ({
         prev && {
           ...prev,
           [key]: value,
+          created: defaultData?.created ?? new Date().toLocaleString("en-US"),
+          modified: new Date().toLocaleString("en-US"),
         },
     );
   };
@@ -86,106 +86,86 @@ export const CardDialog = ({
         className="h-5/6"
       >
         <DialogHeader>
-          <Tabs
-            className="pb-3"
-            value={mode}
-            onValueChange={(s) => setMode(s as "edit" | "view")}
-          >
-            <TabsList>
-              <TabsTrigger value="edit">Edit</TabsTrigger>
-              <TabsTrigger value="view">Preview</TabsTrigger>
-            </TabsList>
-          </Tabs>
-          {mode === "edit" && (
-            <>
-              <DialogTitle>
-                {defaultData ? (
-                  <span>
-                    Editing&nbsp;
-                    <i>{defaultData.title}</i>
-                  </span>
-                ) : (
-                  `Adding new card to ${laneId}`
-                )}
-              </DialogTitle>
-              <DialogDescription>
-                {defaultData
-                  ? "Mistakes happen :)"
-                  : "More options coming soon!"}
-              </DialogDescription>
-            </>
-          )}
+          <DialogTitle>
+            {defaultData ? (
+              <span>
+                Editing&nbsp;
+                <i>{defaultData.title}</i>
+              </span>
+            ) : (
+              `Adding new card to ${laneId}`
+            )}
+          </DialogTitle>
+          <DialogDescription>
+            {defaultData ? "Mistakes happen :)" : "More options coming soon!"}
+          </DialogDescription>
         </DialogHeader>
         <ScrollArea className="h-[60vh] px-5 py-2">
-          {mode === "edit" ? (
-            <div className="flex h-[60vh] flex-col gap-5 px-2">
-              <div className="flex flex-col justify-start gap-2">
-                <Label htmlFor="title" className="font-semibold tracking-wide">
-                  Title
-                </Label>
-                <Input
-                  id="title"
-                  name="title"
-                  value={formValues?.title}
-                  placeholder={"Unnamed Card"}
-                  onChange={(e) =>
-                    updateFormValue(e.currentTarget.id, e.currentTarget.value)
-                  }
-                />
-                <span className="text-sm text-muted-foreground">
-                  The title of your card
-                </span>
-              </div>
+          <div className="flex h-[60vh] flex-col gap-5 px-2">
+            <div className="flex flex-col justify-start gap-2">
+              <Label htmlFor="title" className="font-semibold tracking-wide">
+                Title
+              </Label>
+              <Input
+                id="title"
+                name="title"
+                value={formValues?.title}
+                placeholder={"Unnamed Card"}
+                onChange={(e) =>
+                  updateFormValue(e.currentTarget.id, e.currentTarget.value)
+                }
+              />
+              <span className="text-sm text-muted-foreground">
+                The title of your card
+              </span>
+            </div>
+            <div className="flex flex-col justify-start gap-2">
+              <Label
+                htmlFor="description"
+                className="font-semibold tracking-wide"
+              >
+                Description
+              </Label>
+              <Input
+                id="description"
+                name="description"
+                value={formValues?.description}
+                placeholder={"some random description"}
+                onChange={(e) =>
+                  updateFormValue(e.currentTarget.id, e.currentTarget.value)
+                }
+              />
+              <span className="text-sm text-muted-foreground">
+                The description to show under the title
+              </span>
+            </div>
+            <MarkdownInput
+              formValue={formValues.notes}
+              updateFormValue={updateFormValue}
+            />
+            <div className="flex flex-row items-center justify-between">
               <div className="flex flex-col justify-start gap-2">
                 <Label
-                  htmlFor="description"
+                  htmlFor="showNotes"
                   className="font-semibold tracking-wide"
                 >
-                  Description
+                  Show Notes
                 </Label>
-                <Input
-                  id="description"
-                  name="description"
-                  value={formValues?.description}
-                  placeholder={"some random description"}
-                  onChange={(e) =>
-                    updateFormValue(e.currentTarget.id, e.currentTarget.value)
-                  }
-                />
+
                 <span className="text-sm text-muted-foreground">
-                  The description to show under the title
+                  Toggle on to always show notes under the description
                 </span>
               </div>
-              <MarkdownInput
-                formValue={formValues.notes}
-                updateFormValue={updateFormValue}
+              <Switch
+                id="showNotes"
+                name="showNotes"
+                checked={formValues?.showNotes}
+                onCheckedChange={(b) =>
+                  updateFormValue<boolean>("showNotes", b)
+                }
               />
-              <div className="flex flex-row items-center justify-between">
-                <div className="flex flex-col justify-start gap-2">
-                  <Label
-                    htmlFor="showNotes"
-                    className="font-semibold tracking-wide"
-                  >
-                    Show Notes
-                  </Label>
-
-                  <span className="text-sm text-muted-foreground">
-                    Toggle on to always show notes under the description
-                  </span>
-                </div>
-                <Switch
-                  id="showNotes"
-                  name="showNotes"
-                  checked={formValues?.showNotes}
-                  onCheckedChange={(b) =>
-                    updateFormValue<boolean>("showNotes", b)
-                  }
-                />
-              </div>
             </div>
-          ) : (
-            <CardView {...formValues} />
-          )}
+          </div>
         </ScrollArea>
 
         <DialogFooter>
@@ -253,8 +233,8 @@ const MarkdownInput = ({
   );
 };
 
-const CardView = ({ title, description, notes }: Card) => (
-  <div className={PROSE_CUSTOM}>
+export const CardView = ({ title, description, notes }: Card) => (
+  <div className={cn(PROSE_CUSTOM, "h-full w-full")}>
     <h1>{title}</h1>
     <p>{description}</p>
     <div>

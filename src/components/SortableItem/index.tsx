@@ -11,6 +11,7 @@ export function SortableItem({
   itemType,
   asChild,
   boardId,
+  laneId,
   ...props
 }: {
   id: string | number;
@@ -30,6 +31,7 @@ export function SortableItem({
       data: {
         itemType: itemType,
         boardId: boardId,
+        laneId: laneId,
       },
     });
 

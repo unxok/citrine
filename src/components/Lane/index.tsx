@@ -83,7 +83,6 @@ export const AddCardButton = ({
     <CardDialog
       laneId={laneId}
       boardId={boardId}
-      defaultMode="edit"
       trigger={
         <Button variant={"outline"} className="w-full bg-primary">
           <PlusIcon />

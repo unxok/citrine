@@ -1,4 +1,5 @@
 import {
+  BOARD,
   BOARDS_LS_KEY,
   BOARDS_NEXT_ID_LS_KEY,
   PROSE_CUSTOM,
@@ -39,6 +40,11 @@ import {
   ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "../ui/context-menu";
+import { Separator } from "../ui/separator";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import { cn } from "@/lib/utils";
+import { Checkbox } from "../ui/checkbox";
+import { useViewStore } from "../View";
 
 export type Board = {
   id: UniqueIdentifier;
@@ -46,6 +52,8 @@ export type Board = {
   title?: string;
   description?: string;
   notes?: string;
+  created?: string;
+  modified?: string;
   showNotes?: boolean;
 };
 
@@ -53,7 +61,8 @@ export const Board = (props: Board & { cards?: Card[] }) => {
   const { title, lanes, description, cards, showNotes, notes } = props;
   const { addBoard, saveBoards } = useBoardStore();
   const [dialogEditOpen, setDialogEditOpen] = useState(false);
-  const [dialogViewOpen, setDialogViewOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
   const updateShowNotes = (b: boolean) => {
     // console.log("got b: ", b);
     addBoard({
@@ -66,10 +75,13 @@ export const Board = (props: Board & { cards?: Card[] }) => {
   return (
     <BoardContextMenuWrapper>
       <BoardContextMenuTrigger
-        className={`flex h-fit w-full flex-col justify-start overflow-x-auto p-5 scrollbar scrollbar-track-transparent scrollbar-thumb-primary`}
+        className={`flex h-fit w-full flex-col justify-start pb-4`}
       >
         <div className="flex gap-2">
-          <div className="text-nowrap text-xl font-bold tracking-widest">
+          <div
+            onClick={() => setIsCollapsed((b) => !b)}
+            className="text-nowrap text-xl font-bold tracking-widest hover:cursor-pointer hover:underline hover:underline-offset-4"
+          >
             {title ?? "Unnamed Board"}
           </div>
           <div className="text-muted-foreground">{cards?.length}</div>
@@ -81,7 +93,9 @@ export const Board = (props: Board & { cards?: Card[] }) => {
           </div>
         )}
       </BoardContextMenuTrigger>
-      <div className="relative flex w-full flex-row items-start justify-start gap-3 p-5">
+      <div
+        className={`relative flex w-full flex-row items-start justify-start gap-3 ${isCollapsed && "hidden"}`}
+      >
         {lanes?.map((props) => (
           <LaneDraggable
             key={props.id}
@@ -90,23 +104,16 @@ export const Board = (props: Board & { cards?: Card[] }) => {
           />
         )) ?? "no lanes yet"}
       </div>
+      <Separator />
       {/* </div> */}
       <BoardDialog
-        defaultMode="edit"
         defaultData={props}
         open={dialogEditOpen}
         setOpen={(b) => setDialogEditOpen(b)}
       />
-      <BoardDialog
-        defaultMode="view"
-        defaultData={props}
-        open={dialogViewOpen}
-        setOpen={(b) => setDialogViewOpen(b)}
-      />
       <BoardContextMenuContent
         showNotes={!!!showNotes}
         setShowNotes={updateShowNotes}
-        setViewOpen={setDialogViewOpen}
         setEditOpen={setDialogEditOpen}
         board={props}
       />
@@ -192,26 +199,26 @@ export const BoardDialog = ({
   defaultData,
   open,
   setOpen,
-  defaultMode,
 }: {
   trigger?: ReactNode;
   defaultData?: Board;
   open?: boolean;
   setOpen?: (b: boolean) => void;
-  defaultMode: "edit" | "view";
 }) => {
   const { addBoard, saveBoards } = useBoardStore();
+  const renderDateTime =
+    defaultData?.created ?? new Date().toLocaleString("en-US");
   const defaultFormState = {
     id: defaultData?.id ?? -1,
     title: defaultData?.title ?? "",
     description: defaultData?.description ?? "",
+    created: defaultData?.created ?? renderDateTime,
+    modified: defaultData?.modified ?? renderDateTime,
     notes: defaultData?.notes ?? "",
     showNotes: defaultData?.showNotes ?? false,
     ...defaultData,
   };
   const [formValues, setFormValues] = useState<Board>(defaultFormState);
-  const [mode, setMode] = useState(defaultMode);
-
   // useEffect(() => console.log(formValues), [formValues]);
 
   const updateFormValue = <T,>(key: string, value: string | T) => {
@@ -219,6 +226,8 @@ export const BoardDialog = ({
       (prev) =>
         prev && {
           ...prev,
+          created: defaultData?.created ?? new Date().toLocaleString("en-US"),
+          modified: new Date().toLocaleString("en-US"),
           [key]: value,
         },
     );
@@ -242,106 +251,86 @@ export const BoardDialog = ({
         className="h-5/6"
       >
         <DialogHeader>
-          <Tabs
-            className="pb-3"
-            value={mode}
-            onValueChange={(s) => setMode(s as "edit" | "view")}
-          >
-            <TabsList>
-              <TabsTrigger value="edit">Edit</TabsTrigger>
-              <TabsTrigger value="view">Preview</TabsTrigger>
-            </TabsList>
-          </Tabs>
-          {mode === "edit" && (
-            <>
-              <DialogTitle>
-                {defaultData ? (
-                  <span>
-                    Editing&nbsp;
-                    <i>{defaultData.title}</i>
-                  </span>
-                ) : (
-                  `Creating a new board`
-                )}
-              </DialogTitle>
-              <DialogDescription>
-                {defaultData
-                  ? "Mistakes happen :)"
-                  : "More options coming soon!"}
-              </DialogDescription>
-            </>
-          )}
+          <DialogTitle>
+            {defaultData ? (
+              <span>
+                Editing&nbsp;
+                <i>{defaultData.title}</i>
+              </span>
+            ) : (
+              `Creating a new board`
+            )}
+          </DialogTitle>
+          <DialogDescription>
+            {defaultData ? "Mistakes happen :)" : "More options coming soon!"}
+          </DialogDescription>
         </DialogHeader>
         <ScrollArea className="h-[60vh] px-5 py-2">
-          {mode === "edit" ? (
-            <div className="flex h-[60vh] flex-col gap-5 px-2">
-              <div className="flex flex-col justify-start gap-2">
-                <Label htmlFor="title" className="font-semibold tracking-wide">
-                  Title
-                </Label>
-                <Input
-                  id="title"
-                  name="title"
-                  value={formValues?.title}
-                  placeholder={"Unnamed Board"}
-                  onChange={(e) =>
-                    updateFormValue(e.currentTarget.id, e.currentTarget.value)
-                  }
-                />
-                <span className="text-sm text-muted-foreground">
-                  The title of your board
-                </span>
-              </div>
+          <div className="flex h-[60vh] flex-col gap-5 px-2">
+            <div className="flex flex-col justify-start gap-2">
+              <Label htmlFor="title" className="font-semibold tracking-wide">
+                Title
+              </Label>
+              <Input
+                id="title"
+                name="title"
+                value={formValues?.title}
+                placeholder={"Unnamed Board"}
+                onChange={(e) =>
+                  updateFormValue(e.currentTarget.id, e.currentTarget.value)
+                }
+              />
+              <span className="text-sm text-muted-foreground">
+                The title of your board
+              </span>
+            </div>
+            <div className="flex flex-col justify-start gap-2">
+              <Label
+                htmlFor="description"
+                className="font-semibold tracking-wide"
+              >
+                Description
+              </Label>
+              <Input
+                id="description"
+                name="description"
+                value={formValues?.description}
+                placeholder={"some random description"}
+                onChange={(e) =>
+                  updateFormValue(e.currentTarget.id, e.currentTarget.value)
+                }
+              />
+              <span className="text-sm text-muted-foreground">
+                The description to show under the title
+              </span>
+            </div>
+            <MarkdownInput
+              formValue={formValues.notes}
+              updateFormValue={updateFormValue}
+            />
+            <div className="flex flex-row items-center justify-between">
               <div className="flex flex-col justify-start gap-2">
                 <Label
-                  htmlFor="description"
+                  htmlFor="showNotes"
                   className="font-semibold tracking-wide"
                 >
-                  Description
+                  Show Notes
                 </Label>
-                <Input
-                  id="description"
-                  name="description"
-                  value={formValues?.description}
-                  placeholder={"some random description"}
-                  onChange={(e) =>
-                    updateFormValue(e.currentTarget.id, e.currentTarget.value)
-                  }
-                />
+
                 <span className="text-sm text-muted-foreground">
-                  The description to show under the title
+                  Toggle on to always show notes under the description
                 </span>
               </div>
-              <MarkdownInput
-                formValue={formValues.notes}
-                updateFormValue={updateFormValue}
+              <Switch
+                id="showNotes"
+                name="showNotes"
+                checked={formValues?.showNotes}
+                onCheckedChange={(b) =>
+                  updateFormValue<boolean>("showNotes", b)
+                }
               />
-              <div className="flex flex-row items-center justify-between">
-                <div className="flex flex-col justify-start gap-2">
-                  <Label
-                    htmlFor="showNotes"
-                    className="font-semibold tracking-wide"
-                  >
-                    Show Notes
-                  </Label>
-
-                  <span className="text-sm text-muted-foreground">
-                    Toggle on to always show notes under the description
-                  </span>
-                </div>
-                <Switch
-                  id="showNotes"
-                  name="showNotes"
-                  checked={formValues?.showNotes}
-                  onCheckedChange={(b) =>
-                    updateFormValue<boolean>("showNotes", b)
-                  }
-                />
-              </div>
             </div>
-          ) : (
-            <CardView {...formValues} />
-          )}
+          </div>
         </ScrollArea>
         <DialogFooter>
           {defaultData && (
@@ -413,26 +402,14 @@ const MarkdownInput = ({
   );
 };
 
-const CardView = ({ title, description, notes }: Card) => (
-  <div className={PROSE_CUSTOM}>
-    <h1>{title}</h1>
-    <p>{description}</p>
-    <div>
-      <Markdown>{notes ?? ""}</Markdown>
-    </div>
-  </div>
-);
-
 export const BoardContextMenuWrapper = ContextMenu;
 export const BoardContextMenuTrigger = ContextMenuTrigger;
 export const BoardContextMenuContent = ({
-  setViewOpen,
   setEditOpen,
   showNotes,
   setShowNotes,
   board,
 }: {
-  setViewOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setEditOpen: React.Dispatch<React.SetStateAction<boolean>>;
   showNotes: boolean;
   setShowNotes: (b: boolean) => void;
@@ -440,11 +417,12 @@ export const BoardContextMenuContent = ({
 }) => {
   const { deleteBoard, saveBoards, addBoard } = useBoardStore();
   const { setCards, saveCards } = useCardStore();
+  const { setView } = useViewStore();
   return (
     <ContextMenuContent>
       <ContextMenuItem
         onClick={() => {
-          setViewOpen(true);
+          setView({ itemId: board.id, itemType: BOARD });
         }}
       >
         View
@@ -535,5 +513,47 @@ export const BoardContextMenuContent = ({
         Hide notes
       </ContextMenuCheckboxItem>
     </ContextMenuContent>
+  );
+};
+
+export const BoardTooltip = ({
+  id,
+  notes,
+  created,
+  modified,
+  isHover,
+  setIsHover,
+  data,
+  includeDefaultData,
+  triggerClassName,
+  contentClassName,
+}: Board & {
+  isHover: boolean;
+  setIsHover: (b: boolean) => void;
+  data?: ReactNode;
+  includeDefaultData?: boolean;
+  triggerClassName?: string;
+  contentClassName?: string;
+}) => {
+  //
+  return (
+    <Tooltip open={isHover} onOpenChange={(b) => setIsHover(b)}>
+      <TooltipTrigger
+        className={cn(`absolute right-0 top-10`, triggerClassName)}
+      ></TooltipTrigger>
+      <TooltipContent className={cn(`text-muted-foreground`, contentClassName)}>
+        {data}
+        {includeDefaultData && (
+          <>
+            <div>Id: {id}</div>
+            <div className="flex items-center justify-start gap-2">
+              Notes: <Checkbox checked={!!notes} />
+            </div>
+            <div>Created: {created}</div>
+            <div>Modified: {modified}</div>
+          </>
+        )}
+      </TooltipContent>
+    </Tooltip>
   );
 };
